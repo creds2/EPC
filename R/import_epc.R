@@ -611,6 +611,7 @@ for(i in 8:10){
   }
   
   sub2$MAINHEAT_DESCRIPTION <- sapply(sub2$MAINHEAT_DESCRIPTION, splitwelsh)
+  sub2$MAINHEAT_DESCRIPTION <- sapply(sub2$MAINHEAT_DESCRIPTION, translatewelsh)
   
   sub2$MAINHEAT_DESCRIPTION[sub2$MAINHEAT_DESCRIPTION == "Portable electric heating assumed for most rooms"] <- "Portable electric heaters assumed for most rooms"
   sub2$MAINHEAT_DESCRIPTION[sub2$MAINHEAT_DESCRIPTION == "Boiler & underfloor, LPG"] <- "Boiler and underfloor heating, LPG"
@@ -620,7 +621,7 @@ for(i in 8:10){
   sub2$MAINHEAT_DESCRIPTION[sub2$MAINHEAT_DESCRIPTION == "Boiler, dual fuel (mineral and wood)"] <- "Boiler and radiators, dual fuel (mineral and wood)" # Guess these are the same
   sub2$MAINHEAT_DESCRIPTION[sub2$MAINHEAT_DESCRIPTION == "Boiler & underfloor, wood pellets"] <- "Boiler and radiators, wood pellets"
   sub2$MAINHEAT_DESCRIPTION[sub2$MAINHEAT_DESCRIPTION == "Boiler and radiators, house coal"] <- "Boiler and radiators, coal"
-  sub2$MAINHEAT_DESCRIPTION[sub2$MAINHEAT_DESCRIPTION == "Bwyler a rheiddiaduron, nwy prif gyflenwad"] <- "Boiler and radiators, mains gas"
+  #sub2$MAINHEAT_DESCRIPTION[sub2$MAINHEAT_DESCRIPTION == "Bwyler a rheiddiaduron, nwy prif gyflenwad"] <- "Boiler and radiators, mains gas"
   sub2$MAINHEAT_DESCRIPTION[sub2$MAINHEAT_DESCRIPTION == "Boiler and radiators, dual fuel appliance (mineral and wood)"] <- "Boiler and radiators, dual fuel (mineral and wood)"
   sub2$MAINHEAT_DESCRIPTION[sub2$MAINHEAT_DESCRIPTION == "Boiler & underfloor, wood logs"] <- "Boiler and underfloor heating, wood logs"
   sub2$MAINHEAT_DESCRIPTION[sub2$MAINHEAT_DESCRIPTION == "Boiler & underfloor, oil"] <- "Boiler and underfloor heating, oil"
@@ -634,7 +635,7 @@ for(i in 8:10){
   sub2$MAINHEAT_DESCRIPTION[sub2$MAINHEAT_DESCRIPTION == "Air source heat pump , electric"] <- "Air source heat pump, electric"
   
   sub2$MAINHEAT_DESCRIPTION[sub2$MAINHEAT_DESCRIPTION == "Boiler, underfloor, oil"] <- "Boiler and underfloor heating, oil"
-  sub2$MAINHEAT_DESCRIPTION[sub2$MAINHEAT_DESCRIPTION == "Bwyler a rheiddiaduron, LPG"] <- "Boiler and radiators, LPG"
+  #sub2$MAINHEAT_DESCRIPTION[sub2$MAINHEAT_DESCRIPTION == "Bwyler a rheiddiaduron, LPG"] <- "Boiler and radiators, LPG"
   
   
   MAINHEAT_DESCRIPTION = c(", electric",
@@ -724,14 +725,16 @@ for(i in 8:10){
   }
   
   sub2$WINDOWS_DESCRIPTION <- sapply(sub2$WINDOWS_DESCRIPTION, splitwelsh)
+  sub2$WINDOWS_DESCRIPTION <- sapply(sub2$WINDOWS_DESCRIPTION, translatewelsh)
+  
   
   sub2$WINDOWS_DESCRIPTION[sub2$WINDOWS_DESCRIPTION == "Full secondary glazing"] <- "Fully secondary glazing"
-  sub2$WINDOWS_DESCRIPTION[sub2$WINDOWS_DESCRIPTION == "Gwydrau dwbl llawn"] <- "Fully double glazed"
+  #sub2$WINDOWS_DESCRIPTION[sub2$WINDOWS_DESCRIPTION == "Gwydrau dwbl llawn"] <- "Fully double glazed"
   sub2$WINDOWS_DESCRIPTION[sub2$WINDOWS_DESCRIPTION == "Full triple glazing"] <- "Fully triple glazed"
   sub2$WINDOWS_DESCRIPTION[sub2$WINDOWS_DESCRIPTION == "Fully secondary glazed"] <- "Fully secondary glazing"
-  sub2$WINDOWS_DESCRIPTION[sub2$WINDOWS_DESCRIPTION == "Fully double glazed|Gwydrau dwbl llawn"] <- "Fully double glazed"
+  #sub2$WINDOWS_DESCRIPTION[sub2$WINDOWS_DESCRIPTION == "Fully double glazed|Gwydrau dwbl llawn"] <- "Fully double glazed"
   sub2$WINDOWS_DESCRIPTION[sub2$WINDOWS_DESCRIPTION == "Single glazedSingle glazing"] <- "Single glazed"
-  sub2$WINDOWS_DESCRIPTION[sub2$WINDOWS_DESCRIPTION == "Gwydrau dwbl rhannol"] <- "Partial double glazing"
+  #sub2$WINDOWS_DESCRIPTION[sub2$WINDOWS_DESCRIPTION == "Gwydrau dwbl rhannol"] <- "Partial double glazing"
   
   WINDOWS_DESCRIPTION = c("High performance glazing",
                           
@@ -776,17 +779,20 @@ for(i in 8:10){
   }
   
   # Welsh!
-  sub2$HOTWATER_DESCRIPTION[sub2$HOTWATER_DESCRIPTION == "O'r brif system, adfer gwres nwyon ffliw"] <- "From main system, flue gas heat recovery"
+  sub2$HOTWATER_DESCRIPTION <- sapply(sub2$HOTWATER_DESCRIPTION, splitwelsh)
+  sub2$HOTWATER_DESCRIPTION <- sapply(sub2$HOTWATER_DESCRIPTION, translatewelsh)
+  
+  #sub2$HOTWATER_DESCRIPTION[sub2$HOTWATER_DESCRIPTION == "O'r brif system, adfer gwres nwyon ffliw"] <- "From main system, flue gas heat recovery"
   sub2$HOTWATER_DESCRIPTION <- gsub("cylinderstat","cylinder thermostat",sub2$HOTWATER_DESCRIPTION, fixed = TRUE)
   sub2$HOTWATER_DESCRIPTION[sub2$HOTWATER_DESCRIPTION == "community scheme"] <- "Community scheme"
   sub2$HOTWATER_DESCRIPTION[sub2$HOTWATER_DESCRIPTION ==  "From main system, no cylinder thermostat, no cylinder thermostat"] <- "From main system, no cylinder thermostat"
   sub2$HOTWATER_DESCRIPTION[sub2$HOTWATER_DESCRIPTION ==  "From community scheme"] <- "Community scheme"
   sub2$HOTWATER_DESCRIPTION[sub2$HOTWATER_DESCRIPTION ==  "community scheme, no cylinder thermostat"] <- "Community scheme, no cylinder thermostat"
-  sub2$HOTWATER_DESCRIPTION[sub2$HOTWATER_DESCRIPTION ==  "O'r brif system"] <- "From main system"
-  sub2$HOTWATER_DESCRIPTION[sub2$HOTWATER_DESCRIPTION ==  "O?r brif system"] <- "From main system"
+ # sub2$HOTWATER_DESCRIPTION[sub2$HOTWATER_DESCRIPTION ==  "O'r brif system"] <- "From main system"
+  #sub2$HOTWATER_DESCRIPTION[sub2$HOTWATER_DESCRIPTION ==  "O?r brif system"] <- "From main system"
   sub2$HOTWATER_DESCRIPTION[sub2$HOTWATER_DESCRIPTION ==  "No system present?electric immersion assumed"] <- "No system present: electric immersion assumed"
-  sub2$HOTWATER_DESCRIPTION[sub2$HOTWATER_DESCRIPTION ==  "From main system |O'r brif system"] <- "From main system"
-  
+  #sub2$HOTWATER_DESCRIPTION[sub2$HOTWATER_DESCRIPTION ==  "From main system |O'r brif system"] <- "From main system"
+  sub2$HOTWATER_DESCRIPTION[sub2$HOTWATER_DESCRIPTION ==  "From main system "] <- "From main system"
    
   HOTWATER_DESCRIPTION = c("Community scheme",
                            "Community scheme with CHP",
@@ -872,11 +878,12 @@ for(i in 8:10){
   }
   
   sub2$SECONDHEAT_DESCRIPTION <- sapply(sub2$SECONDHEAT_DESCRIPTION,splitwelsh)
+  sub2$SECONDHEAT_DESCRIPTION <- sapply(sub2$SECONDHEAT_DESCRIPTION,translatewelsh)
   
   sub2$SECONDHEAT_DESCRIPTION[sub2$SECONDHEAT_DESCRIPTION == "Room heaters, lpg"] <- "Room heaters, LPG"
   sub2$SECONDHEAT_DESCRIPTION[sub2$SECONDHEAT_DESCRIPTION == "Dim"] <- "None"
   sub2$SECONDHEAT_DESCRIPTION[sub2$SECONDHEAT_DESCRIPTION == "Portable electric heaters(assumed)"] <- "Portable electric heaters (assumed)"
-  sub2$SECONDHEAT_DESCRIPTION[sub2$SECONDHEAT_DESCRIPTION == "Gwresogyddion ystafell, nwy prif gyflenwad"] <- "Room heaters, mains gas"
+  #sub2$SECONDHEAT_DESCRIPTION[sub2$SECONDHEAT_DESCRIPTION == "Gwresogyddion ystafell, nwy prif gyflenwad"] <- "Room heaters, mains gas"
   sub2$SECONDHEAT_DESCRIPTION[sub2$SECONDHEAT_DESCRIPTION == "Room heaters, (null)"] <- "Room heaters,"
   
   
