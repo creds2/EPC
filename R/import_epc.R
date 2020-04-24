@@ -2,8 +2,8 @@
 onedrive <- "E:/OneDrive - University of Leeds/"
 library(dplyr)
 library(readr)
-source("R/translate_welsh.R")
-source("R/funtions.R")
+source("R/translate_welsh.R", encoding="UTF-8")
+source("R/funtions.R", encoding="UTF-8")
 #dir.create("tmp2")
 #unzip(file.path(onedrive,"CREDS Data/EPC Certificates/all-domestic-certificates.zip"), exdir = "tmp2")
 
@@ -14,132 +14,12 @@ files_reccs <- files[grepl("recommendations.csv", files)]
 
 # Functions ---------------------------------------------------------------
 
-fix_wm2k <- function(x){
-  
-  x <- gsub("²","2", x)
-  x <- gsub("W/m?K","W/m2K", x, fixed = TRUE)
-  x <- gsub("W/mA?K","W/m2K", x, fixed = TRUE)
-  x <- gsub("W/mÂ2K","W/m2K", x, fixed = TRUE)
-  x <- gsub("W/m&#0178;K","W/m2K", x, fixed = TRUE)
-  x <- gsub("W/m??K","W/m2K", x, fixed = TRUE)
-  
-  
-  if(grepl("W/m2K", x)){
-    y <- strsplit(x," ")[[1]]
-    if(length(y) != 2){
-      stop(paste0("Don't know how to process ",x))
-    }
-    if(nchar(y[1]) != 4){
-      y[1] <- format(as.numeric(y[1]), digits = 2, nsmall = 2)
-    }
-    x <- paste0(y[1]," ",y[2])
-  }
-  
-  return(x)
-}
-
-validate <- function(vals, nm){
-  if(all(certs[[nm]] %in% vals)){
-    certs[[nm]] <- factor(certs[[nm]], levels = vals)
-    assign('certs',certs,envir=.GlobalEnv)
-  } else {
-    err <- unique(certs[[nm]])
-    err <- err[!err %in% vals]
-    err <- err[order(err)]
-    print(err)
-    stop(paste0("Unknown values in ",nm))
-  }
-}
-
-
-yn2logical <- function(vec){
-  vec2 <- pbapply::pbsapply(vec, function(i){
-    if(is.na(i)){
-      return(NA)
-    } else if (i == "Y"){
-      return(TRUE)
-    } else if(i == "N"){
-      return(FALSE)
-    } else{
-      stop(paste0("Unknown value ",i))
-    }
-  }, USE.NAMES = FALSE)
-}
-
-
-# look for welsh in |
-splitwelsh <- function(x){
-  if(grepl("|",x, fixed = TRUE)){
-    y <- strsplit(x,"|", fixed = TRUE)
-    y <- y[[1]]
-    if(length(y) == 2){
-      return(y[1])
-    } else if(length(y) %% 2 == 0){
-      return(paste(y[seq(1,length(y) - 1, 2)], collapse = ""))
-    } else {
-      return(x)
-    }
-  } else {
-    return(x)
-  }
-}
-
-
-td_FLOOR_DESCRIPTION <- function(from,to){
-  certs$FLOOR_DESCRIPTION[certs$FLOOR_DESCRIPTION %in% from] <- to
-  assign('certs',certs,envir=.GlobalEnv)
-}
-
-sub_ROOF_DESCRIPTION <- function(from,to){
-  certs$ROOF_DESCRIPTION <- gsub(from,to,certs$ROOF_DESCRIPTION, fixed = TRUE)
-  assign('certs',certs,envir=.GlobalEnv)
-}
-
-td_ROOF_DESCRIPTION <- function(from,to){
-  certs$ROOF_DESCRIPTION[certs$ROOF_DESCRIPTION %in% from] <- to
-  assign('certs',certs,envir=.GlobalEnv)
-}
-
-td_MAINHEAT_DESCRIPTION <- function(from,to){
-  certs$MAINHEAT_DESCRIPTION[certs$MAINHEAT_DESCRIPTION %in% from] <- to
-  assign('certs',certs,envir=.GlobalEnv)
-}
-
-sub_MAINHEAT_DESCRIPTION <- function(from,to){
-  certs$MAINHEAT_DESCRIPTION <- gsub(from,to,certs$MAINHEAT_DESCRIPTION, fixed = TRUE)
-  assign('certs',certs,envir=.GlobalEnv)
-}
-
-sub_FLOOR_DESCRIPTION <- function(from,to){
-  certs$FLOOR_DESCRIPTION <- gsub(from,to,certs$FLOOR_DESCRIPTION, fixed = TRUE)
-  assign('certs',certs,envir=.GlobalEnv)
-}
-
-td_HOTWATER_DESCRIPTION <- function(from,to){
-  certs$HOTWATER_DESCRIPTION[certs$HOTWATER_DESCRIPTION %in% from] <- to
-  assign('certs',certs,envir=.GlobalEnv)
-}
-
-td_SECONDHEAT_DESCRIPTION <- function(from,to){
-  certs$SECONDHEAT_DESCRIPTION[certs$SECONDHEAT_DESCRIPTION %in% from] <- to
-  assign('certs',certs,envir=.GlobalEnv)
-}
-
-sub_WALLS_DESCRIPTION <- function(from,to){
-  certs$WALLS_DESCRIPTION <- gsub(from,to,certs$WALLS_DESCRIPTION, fixed = TRUE)
-  assign('certs',certs,envir=.GlobalEnv)
-}
-
-td_WALLS_DESCRIPTION <- function(from,to){
-  certs$WALLS_DESCRIPTION[certs$WALLS_DESCRIPTION %in% from] <- to
-  assign('certs',certs,envir=.GlobalEnv)
-}
 
 # Import Loop -------------------------------------------------------------
 
 certs <- list()
 
-for(i in 22:50){
+for(i in 1:200){
   message(files_certs[i])
   sub2 <- readr::read_csv(files_certs[i], col_types = col_types)
   
@@ -226,60 +106,102 @@ parallel::clusterExport(
 
 # long strings
 
+# Time consuming parts ----------------------------------------------------
+
+certs$FLOOR_DESCRIPTION <- pbapply::pbsapply(certs$FLOOR_DESCRIPTION,splitwelsh, cl = cl, USE.NAMES = FALSE)
+certs$FLOOR_DESCRIPTION <- pbapply::pbsapply(certs$FLOOR_DESCRIPTION,standardclean, cl = cl, USE.NAMES = FALSE)
+certs$FLOOR_DESCRIPTION <- pbapply::pbsapply(certs$FLOOR_DESCRIPTION,translatewelsh, cl = cl, USE.NAMES = FALSE)
+certs$FLOOR_DESCRIPTION <- pbapply::pbsapply(certs$FLOOR_DESCRIPTION,fix_wm2k, cl = cl, USE.NAMES = FALSE)
+
+certs$WALLS_DESCRIPTION <- pbapply::pbsapply(certs$WALLS_DESCRIPTION, splitwelsh, cl = cl, USE.NAMES = FALSE)
+certs$WALLS_DESCRIPTION <- pbapply::pbsapply(certs$WALLS_DESCRIPTION, standardclean, cl = cl, USE.NAMES = FALSE)
+certs$WALLS_DESCRIPTION <- pbapply::pbsapply(certs$WALLS_DESCRIPTION, translatewelsh, cl = cl, USE.NAMES = FALSE)
+certs$WALLS_DESCRIPTION <- pbapply::pbsapply(certs$WALLS_DESCRIPTION,fix_wm2k, cl = cl, USE.NAMES = FALSE)
+
+certs$ROOF_DESCRIPTION <- pbapply::pbsapply(certs$ROOF_DESCRIPTION, splitwelsh, cl = cl, USE.NAMES = FALSE)
+certs$ROOF_DESCRIPTION <- pbapply::pbsapply(certs$ROOF_DESCRIPTION, standardclean, cl = cl, USE.NAMES = FALSE)
+certs$ROOF_DESCRIPTION <- pbapply::pbsapply(certs$ROOF_DESCRIPTION, translatewelsh, cl = cl, USE.NAMES = FALSE)
+certs$ROOF_DESCRIPTION <- pbapply::pbsapply(certs$ROOF_DESCRIPTION,fix_wm2k, cl = cl, USE.NAMES = FALSE)
+
+certs$MAINHEATCONT_DESCRIPTION <- pbapply::pbsapply(certs$MAINHEATCONT_DESCRIPTION, standardclean, cl = cl, USE.NAMES = FALSE)
+certs$MAINHEATCONT_DESCRIPTION <- pbapply::pbsapply(certs$MAINHEATCONT_DESCRIPTION, translatewelsh, cl = cl, USE.NAMES = FALSE)
+
+certs$MAINHEAT_DESCRIPTION <- pbapply::pbsapply(certs$MAINHEAT_DESCRIPTION, splitwelsh, cl = cl, USE.NAMES = FALSE)
+certs$MAINHEAT_DESCRIPTION <- pbapply::pbsapply(certs$MAINHEAT_DESCRIPTION, standardclean, cl = cl, USE.NAMES = FALSE)
+certs$MAINHEAT_DESCRIPTION <- pbapply::pbsapply(certs$MAINHEAT_DESCRIPTION, translatewelsh, cl = cl, USE.NAMES = FALSE)
+
+certs$HOTWATER_DESCRIPTION <- pbapply::pbsapply(certs$HOTWATER_DESCRIPTION, splitwelsh, cl = cl, USE.NAMES = FALSE)
+certs$HOTWATER_DESCRIPTION <- pbapply::pbsapply(certs$HOTWATER_DESCRIPTION, standardclean, cl = cl, USE.NAMES = FALSE)
+certs$HOTWATER_DESCRIPTION <- pbapply::pbsapply(certs$HOTWATER_DESCRIPTION, translatewelsh, cl = cl, USE.NAMES = FALSE)
+
+certs$SECONDHEAT_DESCRIPTION <- pbapply::pbsapply(certs$SECONDHEAT_DESCRIPTION, splitwelsh, cl = cl, USE.NAMES = FALSE)
+certs$SECONDHEAT_DESCRIPTION <- pbapply::pbsapply(certs$SECONDHEAT_DESCRIPTION, standardclean, cl = cl, USE.NAMES = FALSE)
+certs$SECONDHEAT_DESCRIPTION <- pbapply::pbsapply(certs$SECONDHEAT_DESCRIPTION, translatewelsh, cl = cl, USE.NAMES = FALSE)
+
+certs$LIGHTING_DESCRIPTION <- pbapply::pbsapply(certs$LIGHTING_DESCRIPTION,splitwelsh, cl = cl, USE.NAMES = FALSE)
+certs$LIGHTING_DESCRIPTION <- pbapply::pbsapply(certs$LIGHTING_DESCRIPTION,standardclean, cl = cl, USE.NAMES = FALSE)
+
+certs$WINDOWS_DESCRIPTION <- pbapply::pbsapply(certs$WINDOWS_DESCRIPTION, splitwelsh, cl = cl, USE.NAMES = FALSE)
+certs$WINDOWS_DESCRIPTION <- pbapply::pbsapply(certs$WINDOWS_DESCRIPTION, standardclean, cl = cl, USE.NAMES = FALSE)
+certs$WINDOWS_DESCRIPTION <- pbapply::pbsapply(certs$WINDOWS_DESCRIPTION, translatewelsh, cl = cl, USE.NAMES = FALSE)
+
+certs$FLOOR_LEVEL <- pbapply::pbsapply(certs$FLOOR_LEVEL, standardclean, cl = cl, USE.NAMES = FALSE)
+
+certs$TRANSACTION_TYPE <- pbapply::pbsapply(certs$TRANSACTION_TYPE, standardclean, cl = cl, USE.NAMES = FALSE)
+
+certs$MAIN_FUEL <- pbapply::pbsapply(certs$MAIN_FUEL, standardclean, cl = cl, USE.NAMES = FALSE)
+
+parallel::stopCluster(cl)
 
 # FLOOR DeSCRIPTION -------------------------------------------------------
 
-certs$FLOOR_DESCRIPTION <- pbapply::pbsapply(certs$FLOOR_DESCRIPTION,splitwelsh, cl = cl, USE.NAMES = FALSE)
-certs$FLOOR_DESCRIPTION <- pbapply::pbsapply(certs$FLOOR_DESCRIPTION,translatewelsh, cl = cl, USE.NAMES = FALSE)
-
-
-sub_FLOOR_DESCRIPTION("Average thermal transmittance ","")
-sub_FLOOR_DESCRIPTION("Trawsyriannedd thermol cyfartalog ","")
-sub_FLOOR_DESCRIPTION("= ","")
-sub_FLOOR_DESCRIPTION("-","")
-sub_FLOOR_DESCRIPTION("  "," ")
-
-certs$FLOOR_DESCRIPTION <- pbapply::pbsapply(certs$FLOOR_DESCRIPTION,fix_wm2k, cl = cl, USE.NAMES = FALSE)
-
 sub_FLOOR_DESCRIPTION("uninsulated","no insulation")
 
-td_FLOOR_DESCRIPTION("Other premises below","(other premises below)")
+td_FLOOR_DESCRIPTION("other premises below","(other premises below)")
 td_FLOOR_DESCRIPTION(", no insulation (assumed)","no insulation (assumed)")
 td_FLOOR_DESCRIPTION(", insulated (assumed)","insulated (assumed)")
 td_FLOOR_DESCRIPTION(", limited insulation (assumed)","limited insulation (assumed)")
+td_FLOOR_DESCRIPTION("above unheated space","to unheated space,")
+td_FLOOR_DESCRIPTION("to unheated space, limited insulation (assumed)insulated","to unheated space, limited insulation (assumed)")
+td_FLOOR_DESCRIPTION("sap05:floor",NA)
 
 FLOOR_DESCRIPTION <- c("(another dwelling below)",
                        "(other premises below)",
-                       "(Same dwelling below) insulated (assumed)",
+                       "(same dwelling below) insulated (assumed)",
                        
-                       paste0(format(seq(0.00, 5.00, 0.01),digits = 2)," W/m2K"),
-                       "Solid,",
-                       "Solid, insulated",
-                       "Solid, insulated (assumed)",
-                       "Solid, limited insulation (assumed)",
-                       "Solid, no insulation (assumed)",
-                       "Suspended,",
-                       "Suspended, insulated",
-                       "Suspended, insulated (assumed)",
-                       "Suspended, limited insulation (assumed)",
-                       "Suspended, no insulation (assumed)",
-                       "To external air, insulated",
-                       "To external air, insulated (assumed)",
-                       "To external air, no insulation (assumed)",
-                       "To external air, limited insulation (assumed)",
-                       "To unheated space,",
-                       "To unheated space, insulated",
-                       "To unheated space, insulated (assumed)",
-                       "To unheated space, no insulation (assumed)",
-                       "To unheated space, limited insulation (assumed)",
-                       "Conservatory",
+                       paste0(format(seq(0.00, 5.00, 0.01),digits = 2)," w/m2k"),
+                       paste0(format(c(7.37, 18.00, 127.35),digits = 2)," w/m2k"),
+                       "0.089 w/m2k",
+                       "103.90 w/m2k",
+                       "16.72 w/m2k",
+                       "25.42 w/m2k",
+                       "5.50 w/m2k",
+                       "7.37 w/m2k",
+                       "solid,",
+                       "solid, insulated",
+                       "solid, insulated (assumed)",
+                       "solid, limited insulation (assumed)",
+                       "solid, no insulation (assumed)",
+                       "suspended,",
+                       "suspended, insulated",
+                       "suspended, insulated (assumed)",
+                       "suspended, limited insulation (assumed)",
+                       "suspended, no insulation (assumed)",
+                       "to external air, insulated",
+                       "to external air, insulated (assumed)",
+                       "to external air, no insulation (assumed)",
+                       "to external air, limited insulation (assumed)",
+                       "to unheated space,",
+                       "to unheated space, insulated",
+                       "to unheated space, insulated (assumed)",
+                       "to unheated space, no insulation (assumed)",
+                       "to unheated space, limited insulation (assumed)",
+                       "conservatory",
                        "no insulation (assumed)",
                        "insulated",
                        "insulated (assumed)",
                        "limited insulation (assumed)",
-                       "SAP05:Floor",
                        NA)
-
 
 
 validate(FLOOR_DESCRIPTION, "FLOOR_DESCRIPTION")
@@ -287,170 +209,173 @@ validate(FLOOR_DESCRIPTION, "FLOOR_DESCRIPTION")
 
 # WALLS_DESCRIPTION -------------------------------------------------------
 
-certs$WALLS_DESCRIPTION <- pbapply::pbsapply(certs$WALLS_DESCRIPTION, splitwelsh, cl = cl, USE.NAMES = FALSE)
-certs$WALLS_DESCRIPTION <- pbapply::pbsapply(certs$WALLS_DESCRIPTION, translatewelsh, cl = cl, USE.NAMES = FALSE)
+sub_WALLS_DESCRIPTION("granite or whin,","granite or whinstone,")
 
-sub_WALLS_DESCRIPTION("Average thermal transmittance ","")
-sub_WALLS_DESCRIPTION("Trawsyriannedd thermol cyfartalog ","")
-sub_WALLS_DESCRIPTION("-","")
-sub_WALLS_DESCRIPTION("  "," ")
-sub_WALLS_DESCRIPTION("= ","")
+td_WALLS_DESCRIPTION("cob, internal","cob, with internal insulation")
+td_WALLS_DESCRIPTION("cobbuilt","cob,")
+td_WALLS_DESCRIPTION("sap05:walls" ,NA)
+td_WALLS_DESCRIPTION("cavity wall, as built, insulated (assumed)as built, no insulation (assumed)" ,"cavity wall, as built, insulated (assumed)")
+td_WALLS_DESCRIPTION("system built, external","system built, with external insulation")
 
-certs$WALLS_DESCRIPTION <- pbapply::pbsapply(certs$WALLS_DESCRIPTION,fix_wm2k, cl = cl, USE.NAMES = FALSE)
-
-sub_WALLS_DESCRIPTION("Granite or whin,","Granite or whinstone,")
-
-td_WALLS_DESCRIPTION("Cob, Internal","Cob, with internal insulation")
-
-
-WALLS_DESCRIPTION <- c(paste0(format(seq(0.00, 5.00, 0.01),digits = 2)," W/m2K"),
-                       "Cavity wall, as built, insulated (assumed)",
-                       "Cavity wall, as built, no insulation (assumed)",
-                       "Cavity wall, as built, partial insulation (assumed)",
-                       "Cavity wall, filled cavity",
-                       "Cavity wall, with internal insulation",
-                       "Cavity wall, with external insulation",
-                       "Cavity wall, filled cavity and internal insulation",
-                       "Cavity wall,",
-                       "Cavity wall, filled cavity and external insulation",
-                       "Cavity wall, no insulation (assumed)",
-                       "Cavity wall, insulated (assumed)",
-                       "Cavity wall, partial insulation (assumed)",
-                       "Cob, as Built",
-                       "Cob, with internal insulation",
-                       "Cob, with external insulation",
-                       "Cob, filled cavity",
-                       "Granite or whinstone,",
-                       "Granite or whinstone, as built, insulated (assumed)",
-                       "Granite or whinstone, as built, no insulation (assumed)",
-                       "Granite or whinstone, with internal insulation",
-                       "Granite or whinstone, with external insulation",
-                       "Granite or whinstone, as built, partial insulation (assumed)",
-                       "Sandstone or limestone, as built, partial insulation (assumed)",
-                       "Sandstone or limestone, as built, no insulation (assumed)", 
-                       "Sandstone or limestone, with external insulation",
-                       "Sandstone or limestone, with internal insulation",
-                       "Sandstone or limestone, as built, insulated (assumed)",
-                       "Sandstone, as built, insulated (assumed)",
-                       "Sandstone, as built, no insulation (assumed)",
-                       "Sandstone, with internal insulation",
-                       "Sandstone, with external insulation",
-                       "Sandstone, as built, partial insulation (assumed)",
-                       "Sandstone, filled cavity",
-                       "Solid brick, filled cavity",
-                       "Solid brick, as built, insulated (assumed)",
-                       "Solid brick, as built, no insulation (assumed)",
-                       "Solid brick, with external insulation",
-                       "Solid brick, with internal insulation",
-                       "Solid brick, as built, partial insulation (assumed)",
-                       "System built, as built, insulated (assumed)",
-                       "System built, as built, no insulation (assumed)",
-                       "System built, with external insulation",
-                       "System built, with internal insulation",
-                       "System built, as built, partial insulation (assumed)",
-                       "System built, filled cavity",
-                       "System built, filled cavity and internal insulation",
-                       "Timber frame, filled cavity",
-                       "Timber frame, filled cavity and internal insulation",
-                       "Timber frame, filled cavity and external insulation",
-                       "Timber frame, as built, insulated (assumed)",
-                       "Timber frame, as built, no insulation (assumed)",
-                       "Timber frame, as built, partial insulation (assumed)",
-                       "Timber frame, with additional insulation",
-                       "Timber frame, with internal insulation",
-                       "Timber frame, with external insulation",
-                       "Park home wall, as built",
-                       "Park home wall, with external insulation",
-                       "Park home wall, with internal insulation",
-                       "Cob, as built",
-                       "SAP05:Walls",
-                       NA)
-
+WALLS_DESCRIPTION <- c(paste0(format(seq(0.00, 5.00, 0.01),digits = 2)," w/m2k"),
+                       paste0(format(c(23.31, 6.26, 62.37, 68.50,9.00),digits = 3)," w/m2k"),
+                       ", as built, no insulation (assumed)",
+                       ", with external insulation",
+                       "32.34 w/m2k",
+                       "9.49 w/m2k", 
+                       "6.26 w/m2k", 
+                       "9.00 w/m2k", 
+                       "cavity wall,",
+                       "cavity wall, as built, insulated (assumed)",
+                       "cavity wall, as built, no insulation (assumed)",
+                       "cavity wall, as built, partial insulation (assumed)",
+                       "cavity wall, filled cavity",
+                       "cavity wall, filled cavity and external insulation",
+                       "cavity wall, filled cavity and internal insulation",
+                       "cavity wall, insulated (assumed)",
+                       "cavity wall, no insulation (assumed)",
+                       "cavity wall, partial insulation (assumed)",
+                       "cavity wall, with external insulation",
+                       "cavity wall, with internal insulation",
+                       "cob,",        
+                       "cob, as built",
+                       "cob, as built",
+                       "cob, filled cavity",
+                       "cob, filled cavity and internal insulation",
+                       "cob, with external insulation",
+                       "cob, with internal insulation",
+                       "granite or whinstone,",
+                       "granite or whinstone, as built, insulated (assumed)",
+                       "granite or whinstone, as built, no insulation (assumed)",
+                       "granite or whinstone, as built, partial insulation (assumed)",
+                       "granite or whinstone, filled cavity",
+                       "granite or whinstone, with external insulation",
+                       "granite or whinstone, with internal insulation",
+                       "park home wall, as built",
+                       "park home wall, with external insulation",
+                       "park home wall, with internal insulation",
+                       "sandstone or limestone, as built, insulated (assumed)",
+                       "sandstone or limestone, as built, no insulation (assumed)",
+                       "sandstone or limestone, as built, partial insulation (assumed)",
+                       "sandstone or limestone, with external insulation",
+                       "sandstone or limestone, with internal insulation",
+                       "sandstone,",
+                       "sandstone, as built, insulated (assumed)",
+                       "sandstone, as built, no insulation (assumed)",
+                       "sandstone, as built, partial insulation (assumed)",
+                       "sandstone, filled cavity",
+                       "sandstone, with external insulation",
+                       "sandstone, with internal insulation",
+                       "solid brick, as built, insulated (assumed)",
+                       "solid brick, as built, no insulation (assumed)",
+                       "solid brick, as built, partial insulation (assumed)",
+                       "solid brick, filled cavity",
+                       "solid brick, with external insulation",
+                       "solid brick, with internal insulation",
+                       "system built, as built, insulated (assumed)",
+                       "system built, as built, no insulation (assumed)",
+                       "system built, as built, partial insulation (assumed)",
+                       "system built, filled cavity",
+                       "system built, filled cavity and external insulation",
+                       "system built, filled cavity and internal insulation",
+                       "system built, with external insulation",
+                       "system built, with internal insulation",
+                       "timber frame, as built, insulated (assumed)",
+                       "timber frame, as built, no insulation (assumed)",
+                       "timber frame, as built, partial insulation (assumed)",
+                       "timber frame, filled cavity",
+                       "timber frame, filled cavity and external insulation",
+                       "timber frame, filled cavity and internal insulation",
+                       "timber frame, with additional insulation",
+                       "timber frame, with external insulation",
+                       "timber frame, with internal insulation",
+                       NA  )
 
 validate(WALLS_DESCRIPTION, "WALLS_DESCRIPTION")
 
-
 # ROOF_DESCRIPTION --------------------------------------------------------
-
-certs$ROOF_DESCRIPTION <- pbapply::pbsapply(certs$ROOF_DESCRIPTION, splitwelsh, cl = cl, USE.NAMES = FALSE)
-certs$ROOF_DESCRIPTION <- pbapply::pbsapply(certs$ROOF_DESCRIPTION, translatewelsh, cl = cl, USE.NAMES = FALSE)
-
-sub_ROOF_DESCRIPTION("Average thermal transmittance ","")
-sub_ROOF_DESCRIPTION("Trawsyriannedd thermol cyfartalog ","")
-sub_ROOF_DESCRIPTION("= ","")
-sub_ROOF_DESCRIPTION("  "," ")
-
-certs$ROOF_DESCRIPTION <- pbapply::pbsapply(certs$ROOF_DESCRIPTION,fix_wm2k, cl = cl, USE.NAMES = FALSE)
-
 
 sub_ROOF_DESCRIPTION("0mm loft insulation","0 mm loft insulation")
 sub_ROOF_DESCRIPTION("2mm loft insulation","2 mm loft insulation")
 sub_ROOF_DESCRIPTION("5mm loft insulation","5 mm loft insulation")
 sub_ROOF_DESCRIPTION("0+mm loft insulation","0+ mm loft insulation")
-sub_ROOF_DESCRIPTION("Pitched, 0 mm loft insulation","Pitched, no insulation")
-sub_ROOF_DESCRIPTION("Pitched, loft insulation","Pitched, insulated")
+sub_ROOF_DESCRIPTION("pitched, 0 mm loft insulation","pitched, no insulation")
+sub_ROOF_DESCRIPTION("pitched, loft insulation","pitched, insulated")
 sub_ROOF_DESCRIPTION("insulation(assumed)","insulation (assumed)")
 sub_ROOF_DESCRIPTION(" mm mm "," mm ")
+sub_ROOF_DESCRIPTION("don't know","unknown")
+sub_ROOF_DESCRIPTION("yes loft insulation","unknown loft insulation")
+sub_ROOF_DESCRIPTION("joists loft insulation","unknown loft insulation")
+sub_ROOF_DESCRIPTION("thatchedinsulated","thatched insulated")
 
-td_ROOF_DESCRIPTION("Pitched, *** INVALID INPUT Code : 57 *** loft insulation","Pitched")
-td_ROOF_DESCRIPTION("Pitched,","Pitched")
-td_ROOF_DESCRIPTION("Flat,","Flat")
-td_ROOF_DESCRIPTION("Other premises above","(other premises above)")
-td_ROOF_DESCRIPTION("Pitched, >=300 mm loft insulation","Pitched, 300+ mm loft insulation")
-td_ROOF_DESCRIPTION("NaN W/m2K",NA)
+td_ROOF_DESCRIPTION("pitched, *** invalid input code : 57 *** loft insulation","pitched")
+td_ROOF_DESCRIPTION("pitched","pitched,")
+td_ROOF_DESCRIPTION("flat","flat,")
+td_ROOF_DESCRIPTION("other premises above","(other premises above)")
+td_ROOF_DESCRIPTION("pitched, >=300 mm loft insulation","pitched, 300+ mm loft insulation")
+td_ROOF_DESCRIPTION(c("nan w/m2k","sap05:roof"),NA)
 td_ROOF_DESCRIPTION("(other dwelling above)","(another dwelling above)")
-td_ROOF_DESCRIPTION("Roof room(s), thatched with additional insulation","Roof room(s), thatched, with additional insulation")
+td_ROOF_DESCRIPTION("roof room(s), thatched with additional insulation","roof room(s), thatched, with additional insulation")
+td_ROOF_DESCRIPTION("roof room(s), insulated at rafters","roof room(s), insulated")
+td_ROOF_DESCRIPTION("roof room(s)","roof room(s),")
+td_ROOF_DESCRIPTION("pitched, 0 mm loft insulation","pitched, no insulation")
+td_ROOF_DESCRIPTION("pitched, mm loft insulation","pitched, unknown loft insulation")
+td_ROOF_DESCRIPTION("pitched, loft insulation","pitched, insulated")
 
 ROOF_DESCRIPTION <- c("(another dwelling above)",
                       "(other premises above)",
-                      paste0(format(seq(0.00, 5.00, 0.01),digits = 2)," W/m2K"),
-                      "18.00 W/m2K",
-                      "Flat, insulated","Flat, insulated (assumed)",
-                      "Flat, limited insulation",
-                      "Flat, limited insulation (assumed)",
-                      "Flat, no insulation","Flat, no insulation (assumed)",
-                      "Flat",
-                      "Pitched",
-                      "Pitched, mm loft insulation",
-                      "Pitched, 1 mm loft insulation",
-                      "Pitched, 11 mm loft insulation",
-                      "Pitched, 12 mm loft insulation",
-                      "Pitched, 25 mm loft insulation",
-                      "Pitched, 50 mm loft insulation",
-                      "Pitched, 75 mm loft insulation",
-                      "Pitched, 100 mm loft insulation",
-                      "Pitched, 150 mm loft insulation",
-                      "Pitched, 200 mm loft insulation",
-                      "Pitched, 250 mm loft insulation",
-                      "Pitched, 270 mm loft insulation",
-                      "Pitched, 300 mm loft insulation",
-                      "Pitched, 300+ mm loft insulation",
-                      "Pitched, 350 mm loft insulation",
-                      "Pitched, 400 mm loft insulation",
-                      "Pitched, 400+ mm loft insulation",
-                      "Pitched, insulated",
-                      "Pitched, insulated (assumed)",
-                      "Pitched, insulated at rafters",
-                      "Pitched, limited insulation",
-                      "Pitched, limited insulation (assumed)",
-                      "Pitched, no insulation",
-                      "Pitched, no insulation (assumed)",
-                      "Pitched, Unknown loft insulation",
-                      "Pitched, Flat Roof Insulation loft insulation",
-                      "Roof room(s)",
-                      "Roof room(s), ceiling insulated",
-                      "Roof room(s), insulated",
-                      "Roof room(s), insulated (assumed)",
-                      "Roof room(s), limited insulation",
-                      "Roof room(s), limited insulation (assumed)",
-                      "Roof room(s), no insulation",
-                      "Roof room(s), no insulation (assumed)",
-                      "Roof room(s), thatched",
+                      paste0(format(seq(0.00, 5.05, 0.01),digits = 2)," w/m2k"),
+                      "127.35 w/m2k",
+                      "18.00 w/m2k",
+                      "47.01 w/m2k",
+                      "flat, insulated",
+                      "flat, insulated (assumed)",
+                      "flat, limited insulation",
+                      "flat, limited insulation (assumed)",
+                      "flat, no insulation","flat, no insulation (assumed)",
+                      "flat,",
+                      "pitched,",
+                      "pitched, 1 mm loft insulation",
+                      "pitched, 11 mm loft insulation",
+                      "pitched, 12 mm loft insulation",
+                      "pitched, 25 mm loft insulation",
+                      "pitched, 50 mm loft insulation",
+                      "pitched, 75 mm loft insulation",
+                      "pitched, 100 mm loft insulation",
+                      "pitched, 150 mm loft insulation",
+                      "pitched, 150+ mm loft insulation",
+                      "pitched, 200 mm loft insulation",
+                      "pitched, 250 mm loft insulation",
+                      "pitched, 270 mm loft insulation",
+                      "pitched, 300 mm loft insulation",
+                      "pitched, 300+ mm loft insulation",
+                      "pitched, 350 mm loft insulation",
+                      "pitched, 400 mm loft insulation",
+                      "pitched, 400+ mm loft insulation",
+                      "pitched, insulated",
+                      "pitched, insulated (assumed)",
+                      "pitched, insulated at rafters",
+                      "pitched, limited insulation",
+                      "pitched, limited insulation (assumed)",
+                      "pitched, no insulation",
+                      "pitched, no insulation (assumed)",
+                      "pitched, unknown loft insulation",
+                      "pitched, flat roof insulation loft insulation",
+                      "roof room(s),",
+                      "roof room(s), ceiling insulated",
+                      "roof room(s), insulated",
+                      "roof room(s), insulated (assumed)",
+                      "roof room(s), limited insulation",
+                      "roof room(s), limited insulation (assumed)",
+                      "roof room(s), no insulation",
+                      "roof room(s), no insulation (assumed)",
+                      "roof room(s), thatched",
                       
-                      "Roof room(s), thatched, with additional insulation",
-                      "Thatched, with additional insulation",
-                      "Thatched",
-                      "SAP05:Roof",
+                      "roof room(s), thatched, with additional insulation",
+                      "thatched, with additional insulation",
+                      "thatched",
+                      "thatched insulated at rafters",
+                      "thatched insulated (assumed)",
                       NA)
 
 validate(ROOF_DESCRIPTION, "ROOF_DESCRIPTION")
@@ -458,33 +383,37 @@ validate(ROOF_DESCRIPTION, "ROOF_DESCRIPTION")
 
 # MAIN_FUEL ---------------------------------------------------------------
 
-certs$MAIN_FUEL <- gsub(" - this is for backwards compatibility only and should not be used"," (unknown)",certs$MAIN_FUEL, fixed = TRUE)
-certs$MAIN_FUEL[certs$MAIN_FUEL == "To be used only when there is no heating/hot-water system"] <- "no heating/hot-water system"
-certs$MAIN_FUEL[certs$MAIN_FUEL == "coal (community)"] <- "house coal (community)"
+sub_MAIN_FUEL(" this is for backwards compatibility only and should not be used"," (unknown)")
+td_MAIN_FUEL("to be used only when there is no heating/hot-water system","no heating/hot-water system")
+td_MAIN_FUEL("community heating schemes: heat from boilers biomass","community heating schemes: heat from boilers - biomass")
 
 MAIN_FUEL <- c("anthracite",
                "appliances able to use mineral oil or liquid biofuel",
                "biogas (community)",
-               "biogas - landfill (unknown)",
+               "biogas landfill (unknown)",
                "biomass (community)",
                "biomass (unknown)",
+               "bioethanol",
+               "biodiesel from any biomass source",
+               "biodiesel from used cooking oil only",
                "rapeseed oil",
-               "Community heating schemes: heat from boilers - biomass",
-               "Community heating schemes: waste heat from power stations",
+               "community heating schemes: heat from boilers - biomass",
+               "community heating schemes: waste heat from power stations",
+               "community heating schemes: heat from heat pump",
                "bulk wood pellets",
-               "dual fuel - mineral + wood",
-               "electricity (unknown)", 
-               "electricity (community)",
-               "electricity (not community)",
-               "Electricity: electricity, unspecified tariff",
-               "house coal (community)",
-               "house coal (not community)",
-               "house coal (unknown)",
-               "LPG (unknown)",
-               "LPG (not community)",
-               "LPG (community)",
-               "LPG special condition",
-               "bottled LPG",
+               "dual fuel mineral + wood",
+               "electric (unknown)", 
+               "electric (community)",
+               "electric (not community)",
+               "electric: electric, unspecified tariff",
+               "coal (community)",
+               "coal (not community)",
+               "coal (unknown)",
+               "lpg (unknown)",
+               "lpg (not community)",
+               "lpg (community)",
+               "lpg special condition",
+               "bottled lpg",
                "mains gas (unknown)",
                "mains gas (community)",
                "mains gas (not community)",
@@ -498,85 +427,97 @@ MAIN_FUEL <- c("anthracite",
                "wood pellets in bags for secondary heating",
                "waste combustion (unknown)",
                "waste combustion (community)",
-               "B30D (community)",
-               "B30K (not community)",
+               "b30d (community)",
+               "b30k (not community)",
                NA)
 
 validate(MAIN_FUEL,"MAIN_FUEL")
 
 # MAINHEATCONT_DESCRIPTION ------------------------------------------------
 
-td_MAINHEATCONT_DESCRIPTION <- function(from,to){
-  certs$MAINHEATCONT_DESCRIPTION[certs$MAINHEATCONT_DESCRIPTION %in% from] <- to
-  assign('certs',certs,envir=.GlobalEnv)
-}
+sub_MAINHEATCONT_DESCRIPTION("least 2","least two")
+sub_MAINHEATCONT_DESCRIPTION("communit heating","community heating")
+sub_MAINHEATCONT_DESCRIPTION("charging linked to use,","charging system linked to use of community heating,")
 
-certs$MAINHEATCONT_DESCRIPTION <- pbapply::pbsapply(certs$MAINHEATCONT_DESCRIPTION, translatewelsh, cl = cl, USE.NAMES = FALSE)
-certs$MAINHEATCONT_DESCRIPTION <- gsub("least 2","least two",certs$MAINHEATCONT_DESCRIPTION, fixed = TRUE)
-certs$MAINHEATCONT_DESCRIPTION <- gsub("communit heating","community heating",certs$MAINHEATCONT_DESCRIPTION, fixed = TRUE)
+td_MAINHEATCONT_DESCRIPTION("flat rate charging, no stat control of room temperature","flat rate charging, no thermostatic control of room temperature")
+td_MAINHEATCONT_DESCRIPTION("flat rate charging, programmer, no room thermostat","flat rate charging, programmer no room thermostat")
+td_MAINHEATCONT_DESCRIPTION("charging system linked to the use of community heating, prog and trvs","charging system linked to use of community heating, programmer and trvs")
+td_MAINHEATCONT_DESCRIPTION("charging system linked to the use of community heating, programmer and trvs","charging system linked to use of community heating, programmer and trvs")
+td_MAINHEATCONT_DESCRIPTION("no time or thermostatic control of room temp","no time or thermostatic control of room temperature")
+td_MAINHEATCONT_DESCRIPTION("not applicable (boiler provides dhw only)","not relevant (supplies dhw only)")
+td_MAINHEATCONT_DESCRIPTION("flat rate charging, no thermostatic control of room temperature","flat rate charging, no thermostatic control")
+td_MAINHEATCONT_DESCRIPTION("flat rate charging, programmer and room stat","flat rate charging, no thermostatic control")
+td_MAINHEATCONT_DESCRIPTION("programmer, roomstat and trvs","programmer, room thermostat and trvs")
+td_MAINHEATCONT_DESCRIPTION("delayed start stat & program & trv's","delayed start thermostat, programmer and trvs")
+td_MAINHEATCONT_DESCRIPTION("charging system linked to use of community heating, programmer?and trvs","charging system linked to use of community heating, programmer and trvs")
+td_MAINHEATCONT_DESCRIPTION("flat rate charging*, programmer and trvs","flat rate charging, programmer and trvs")
+td_MAINHEATCONT_DESCRIPTION(c("celect control","celect controls"),"celect-type controls")
+td_MAINHEATCONT_DESCRIPTION("charging system linked to use of community heating, programmer and at least two room stats","charging system linked to use of community heating, programmer and at least two room thermostats")
+td_MAINHEATCONT_DESCRIPTION("2207 time and temperature zone control","time and temperature zone control")
+td_MAINHEATCONT_DESCRIPTION(c("charging system linked to use of community heating, programmerand room thermostat","charging system linked to use of communit heating, programmer and room thermostat"),"charging system linked to use of community heating, programmer and room thermostat")
+td_MAINHEATCONT_DESCRIPTION("programmer and at least two room thermostat","programmer and at least two room thermostats")
+td_MAINHEATCONT_DESCRIPTION("flat rate charging trvs","flat rate charging, trvs")
+td_MAINHEATCONT_DESCRIPTION("thermostat, programmer and trvs","programmer, room thermostat and trvs")
+td_MAINHEATCONT_DESCRIPTION("celect-type controls","celect-type controls")
+td_MAINHEATCONT_DESCRIPTION("no time or thermostatic control of temperature","no time or thermostatic control of room temperature")
+td_MAINHEATCONT_DESCRIPTION("programmer, no thermostat","programmer, no room thermostat")
+td_MAINHEATCONT_DESCRIPTION(c("sap05:main-heating-controls",
+                              "sap:main-heating-controls",
+                              "????????????????",
+                              ", ??????",
+                              "???????????????????????????????????",
+                              "????????????????????????????????????????????????"),NA)
+td_MAINHEATCONT_DESCRIPTION("thermostat and programmer","programmer and room thermostat")
+td_MAINHEATCONT_DESCRIPTION("trv's, program and flow switch","programmer, trvs and flow switch")
+td_MAINHEATCONT_DESCRIPTION("appliance thermostat","appliance thermostats")
+td_MAINHEATCONT_DESCRIPTION("delayed start stat and program and trv's","delayed start thermostat, programmer and trvs")
+td_MAINHEATCONT_DESCRIPTION("charging system linked to community heating use, programmer and trvs","charging system linked to community heating, programmer and trvs")
+td_MAINHEATCONT_DESCRIPTION("dim","none")
 
-td_MAINHEATCONT_DESCRIPTION("Flat rate charging, no stat control of room temperature","Flat rate charging, no thermostatic control of room temperature")
-td_MAINHEATCONT_DESCRIPTION("Flat rate charging, programmer, no room thermostat","Flat rate charging, programmer no room thermostat")
-td_MAINHEATCONT_DESCRIPTION("Charging system linked to the use of community heating, prog and TRVs","Charging system linked to use of community heating, programmer and TRVs")
-td_MAINHEATCONT_DESCRIPTION("Charging system linked to the use of community heating, programmer and TRVs","Charging system linked to use of community heating, programmer and TRVs")
-td_MAINHEATCONT_DESCRIPTION("No time or thermostatic control of room temp","No time or thermostatic control of room temperature")
-td_MAINHEATCONT_DESCRIPTION("Not applicable (boiler provides DHW only)","Not relevant (supplies DHW only)")
-td_MAINHEATCONT_DESCRIPTION("Flat rate charging, no thermostatic control of room temperature","Flat rate charging, no thermostatic control")
-td_MAINHEATCONT_DESCRIPTION("Flat rate charging, programmer and room stat","Flat rate charging, no thermostatic control")
-td_MAINHEATCONT_DESCRIPTION("Programmer, roomstat and TRVs","Programmer, room thermostat and TRVs")
-td_MAINHEATCONT_DESCRIPTION("Delayed start stat & program & TRV's","Delayed start thermostat, programmer and TRVs")
-td_MAINHEATCONT_DESCRIPTION("Charging system linked to use of community heating, programmer?and TRVs","Charging system linked to use of community heating, programmer and TRVs")
-td_MAINHEATCONT_DESCRIPTION("Flat rate charging*, programmer and TRVs","Flat rate charging, programmer and TRVs")
-td_MAINHEATCONT_DESCRIPTION(c("Celect control","Celect controls"),"Celect-type controls")
-td_MAINHEATCONT_DESCRIPTION("Charging system linked to use of community heating, programmer and at least two room stats","Charging system linked to use of community heating, programmer and at least two room thermostats")
-td_MAINHEATCONT_DESCRIPTION("2207 Time and temperature zone control","Time and temperature zone control")
-td_MAINHEATCONT_DESCRIPTION("Charging system linked to use of community heating, programmerand room thermostat","Charging system linked to use of community heating, programmer and room thermostat")
-td_MAINHEATCONT_DESCRIPTION("Programmer and at least two room thermostat","Programmer and at least two room thermostats")
-td_MAINHEATCONT_DESCRIPTION("Flat rate charging TRVs","Flat rate charging, TRVs")
-td_MAINHEATCONT_DESCRIPTION("Thermostat, programmer and TRVs","Programmer, room thermostat and TRVs")
-
-MAINHEATCONT_DESCRIPTION = c("Appliance thermostats",
-                             "Appliance thermostat and programmer",
-                             "Automatic charge control",
-                             "Charging system linked to use of community heating, programmer and at least two room thermostats",
-                             "Charging system linked to use of community heating, programmer and room thermostat",
-                             "Charging system linked to use of community heating, programmer and TRVs",
-                             "Charging system linked to use of community heating, room thermostat only",
-                             "Charging system linked to use of community heating, TRVs",
-                             "Controls for high heat retention storage heaters",
-                             "Charging system linked to use of communit heating, programmer and room thermostat",
-                             "Delayed start thermostat, programmer and TRVs",
-                             "Delayed start thermostat and programmer",
-                             "Flat rate charging, programmer and at least two room thermostats",
-                             "Flat rate charging, programmer and room thermostat",
-                             "Flat rate charging, programmer no room thermostat",
-                             "Flat rate charging, programmer and TRVs",
-                             "Flat rate charging, room thermostat only",
-                             "Flat rate charging, TRVs",
-                             "Flat rate charging, no thermostatic control",
-                             "Manual charge control",
-                             "No thermostatic control of room temperature",
-                             "No time or thermostatic control of room temperature",
-                             "None",
-                             "Not relevant (supplies DHW only)",
-                             "Programmer and appliance thermostats",
-                             "Programmer and at least two room thermostats",
-                             "Programmer and at least two room thermostats including a delayed start thermostat",
-                             "Programmer and room thermostat",
-                             "Programmer and room thermostats",
-                             "Programmer, no room thermostat",
-                             "Programmer, room thermostat and TRVs",
-                             "Programmer, TRVs and boiler energy manager",
-                             "Programmer, TRVs and bypass",
-                             "Programmer, TRVs and flow switch",
-                             "Room thermostat only",
-                             "Room thermostats only",
-                             "Time and temperature zone control",
-                             "Temperature zone control",
-                             "TRVs and bypass",
-                             "Unit charging, programmer and TRVs",
-                             "SAP05:Main-Heating-Controls",
-                             "Celect-type controls",
+MAINHEATCONT_DESCRIPTION = c("appliance thermostats",
+                             "appliance thermostat and programmer",
+                             "automatic charge control",
+                             "charging system linked to use of community heating, programmer",
+                             "charging system linked to use of community heating, programmer and at least two room thermostats",
+                             "charging system linked to use of community heating, programmer and room thermostat",
+                             "charging system linked to use of community heating, programmer and trvs",
+                             "charging system linked to use of community heating, room thermostat only",
+                             "charging system linked to use of community heating, trvs",
+                             "controls for high heat retention storage heaters",
+                             "delayed start thermostat, programmer and trvs",
+                             "delayed start thermostat and programmer",
+                             "delayed start programmer and at least two room thermostats",
+                             "flat rate charging, programmer and at least two room thermostats",
+                             "flat rate charging, programmer and room thermostat",
+                             "flat rate charging, programmer no room thermostat",
+                             "flat rate charging, programmer and trvs",
+                             "flat rate charging, room thermostat only",
+                             "flat rate charging, trvs",
+                             "flat rate charging, no thermostatic control",
+                             "manual charge control",
+                             "no thermostatic control of room temperature",
+                             "no time or thermostatic control of room temperature",
+                             "none",
+                             "not relevant (supplies dhw only)",
+                             "programmer and appliance thermostats",
+                             "programmer and at least two room thermostats",
+                             "programmer and at least two room thermostats including a delayed start thermostat",
+                             "programmer and delayed start thermostat",
+                             "programmer and room thermostat",
+                             "programmer and room thermostats",
+                             "programmer, no room thermostat",
+                             "programmer, room thermostat and trvs",
+                             "programmer, trvs and boiler energy manager",
+                             "programmer, trvs and bypass",
+                             "programmer, trvs and flow switch",
+                             "room thermostat only",
+                             "room thermostats only",
+                             "time and temperature zone control",
+                             "time and temperature zone control by suitable arrangement of plumbing and electrical services",
+                             "temperature zone control",
+                             "trvs and bypass",
+                             "unit charging, programmer and trvs",
+                             "celect-type controls",
                              NA)
 
 validate(MAINHEATCONT_DESCRIPTION, "MAINHEATCONT_DESCRIPTION")
@@ -584,225 +525,397 @@ validate(MAINHEATCONT_DESCRIPTION, "MAINHEATCONT_DESCRIPTION")
 
 # MAINHEAT_DESCRIPTION ----------------------------------------------------
 
-certs$MAINHEAT_DESCRIPTION <- pbapply::pbsapply(certs$MAINHEAT_DESCRIPTION, splitwelsh, cl = cl, USE.NAMES = FALSE)
-certs$MAINHEAT_DESCRIPTION <- pbapply::pbsapply(certs$MAINHEAT_DESCRIPTION, translatewelsh, cl = cl, USE.NAMES = FALSE)
+sub_mainheat_description("ratiators","radiators")
+sub_mainheat_description(", underfloor,",", underfloor heating,")
+sub_mainheat_description("sourceheat","source heat")
+sub_mainheat_description("boiler, underfloor,","boiler, underfloor heating,")
+sub_mainheat_description("boiler and underfloor,","boiler, underfloor heating,")
+sub_mainheat_description("full double glazed,","")
+sub_mainheat_description(" and underfloor heating",", underfloor heating")
+sub_mainheat_description(" and radiators",", radiators")
+sub_mainheat_description(" bulk "," ")
+sub_mainheat_description("solar assisted source","solar assisted")
+sub_mainheat_description("solar-assisted","solar assisted")
+sub_mainheat_description("boiler and ,","boiler and,")
+sub_mainheat_description("secondary wood pellets","wood pellets")
 
-sub_MAINHEAT_DESCRIPTION("&","and")
-sub_MAINHEAT_DESCRIPTION("house coal","coal")
-sub_MAINHEAT_DESCRIPTION("Boiler and underfloor,","Boiler and underfloor heating,")
+sub_mainheat_description(c("full double glazed",
+                           "full secondary glazing",
+                           "partial double glazing",
+                           "single glazed"),"")
 
 
-td_MAINHEAT_DESCRIPTION("Portable electric heating assumed for most rooms","Portable electric heaters assumed for most rooms")
-td_MAINHEAT_DESCRIPTION("Warm air, Electricaire","Warm air, electric")
-td_MAINHEAT_DESCRIPTION("Community, community","Community scheme")
-td_MAINHEAT_DESCRIPTION("Boiler, dual fuel (mineral and wood)","Boiler and radiators, dual fuel (mineral and wood)") # Guess these are the same
-td_MAINHEAT_DESCRIPTION("Boiler and radiators, house coal","Boiler and radiators, coal")
-td_MAINHEAT_DESCRIPTION("Boiler and radiators, dual fuel appliance (mineral and wood)","Boiler and radiators, dual fuel (mineral and wood)")
-td_MAINHEAT_DESCRIPTION("Room heaters, electricity","Room heaters, electric")
-td_MAINHEAT_DESCRIPTION(c("No system present: electric heaters assumed, mains gas","No system present: electric heaters assumed, electric"),"No system present: electric heaters assumed")
-td_MAINHEAT_DESCRIPTION("Boiler and radiators, lpg (bottled)","Boiler and radiators, bottled LPG"   )                                                                       
-td_MAINHEAT_DESCRIPTION("Electric ceiling, electric","Electric ceiling heating")
-td_MAINHEAT_DESCRIPTION("Air source heat pump, , radiators, electric","Air source heat pump, radiators, electric")
-td_MAINHEAT_DESCRIPTION("Boiler and radiators,","Boiler and radiators")
-td_MAINHEAT_DESCRIPTION("Air source heat pump , electric","Air source heat pump, electric")
-td_MAINHEAT_DESCRIPTION("Boiler, underfloor, oil","Boiler and underfloor heating, oil")
-td_MAINHEAT_DESCRIPTION("Electric ceiling heating, electric","Electric ceiling heating")
-td_MAINHEAT_DESCRIPTION("Boiler and radiators, heat from boilers - mains gas","Boiler and radiators, mains gas")
-td_MAINHEAT_DESCRIPTION("Boiler and radiators, bulk LPG","Boiler and radiators, LPG")
-td_MAINHEAT_DESCRIPTION("Air source heat pump, , electric","Air source heat pump, electric")
-td_MAINHEAT_DESCRIPTION("Ground source heat pump , electric","Ground source heat pump, electric")
-td_MAINHEAT_DESCRIPTION("Ground source heat pump, Systems with radiators, electric","Ground source heat pump, radiators, electric")
-td_MAINHEAT_DESCRIPTION("Room heaters","Room heaters,")
-td_MAINHEAT_DESCRIPTION("Water source heat pump, Warm air, electric","Water source heat pump, warm air, electric")
-td_MAINHEAT_DESCRIPTION("Boiler and underfloor, electric","Boiler and underfloor heating, electric")
-td_MAINHEAT_DESCRIPTION("Boiler, underfloor, LPG","Boiler and underfloor heating, LPG")
-td_MAINHEAT_DESCRIPTION("Boiler, coal","Boiler and radiators, coal")
-td_MAINHEAT_DESCRIPTION("Boiler, underfloor, dual fuel (mineral and wood)","Boiler and underfloor heating, dual fuel (mineral and wood)")
-td_MAINHEAT_DESCRIPTION("Warm air heat pump, electric","Warm air, heat pump, electric")
-td_MAINHEAT_DESCRIPTION("Ground source heat pump, , electric","Ground source heat pump, electric")
-td_MAINHEAT_DESCRIPTION(c("Portable electric heating assumed for most rooms, electric","Portable electric heating assumed for most rooms"),"Portable electric heaters assumed for most rooms")
-td_MAINHEAT_DESCRIPTION("Electric storage, electric","Electric storage heaters")
-td_MAINHEAT_DESCRIPTION("Electric ceiling","Electric ceiling heating")
-td_MAINHEAT_DESCRIPTION("Air source heat pump fan coil units, electric","Air source heat pump, fan coil units, electric")
-td_MAINHEAT_DESCRIPTION("Boiler, smokeless fuel","Boiler and radiators, smokeless fuel")
-td_MAINHEAT_DESCRIPTION("Community scheme with CHP, waste combustion and waste combustion","Community scheme, waste combustion")
-td_MAINHEAT_DESCRIPTION("Ground-to-water heat pump with auxiliary heater (electric) source heat pump, radiators, electric","Ground source heat pump, radiators, electric")
-td_MAINHEAT_DESCRIPTION("Air source heat pump, Warm air, electric","Air source heat pump, warm air, electric")
-td_MAINHEAT_DESCRIPTION("Ground source heat pump, radiators, electricity","Ground source heat pump, radiators, electric")
-td_MAINHEAT_DESCRIPTION("Boiler and radiators, bulk wood pellets","Boiler and radiators, wood pellets")
+
+td_mainheat_description("portable electric heating assumed for most rooms","portable electric heaters assumed for most rooms")
+td_mainheat_description("warm air, electricaire","warm air, electric")
+td_mainheat_description("community, community","community scheme")
+td_mainheat_description("boiler, dual fuel (mineral and wood)","boiler, radiators, dual fuel (mineral and wood)") # guess these are the same
+
+td_mainheat_description(c("no system present: electric heaters assumed, mains gas",
+                          "no system present: electric heaters assumed, electric",
+                          "no system present: electric heaters assumed, electicity",
+                          "no system present: electric heaters assumed, radiators, electric"
+                          ),"no system present: electric heaters assumed")
+
+td_mainheat_description("boiler, radiators, lpg (bottled)","boiler, radiators, bottled lpg"   )                                                                       
+td_mainheat_description("electric ceiling, electric","electric ceiling heating")
+
+td_mainheat_description("air source heat pump , electric","air source heat pump, electric")
+td_mainheat_description("boiler, underfloor, oil","boiler, underfloor heating, oil")
+td_mainheat_description("electric ceiling heating, electric","electric ceiling heating")
+td_mainheat_description("boiler, radiators, heat from boilers - mains gas","boiler, radiators, mains gas")
+td_mainheat_description("boiler, radiators, bulk lpg","boiler, radiators, lpg")
+td_mainheat_description("air source heat pump, , electric","air source heat pump, electric")
+td_mainheat_description("ground source heat pump , electric","ground source heat pump, electric")
+td_mainheat_description("ground source heat pump, systems with radiators, electric","ground source heat pump, radiators, electric")
+
+td_mainheat_description("water source heat pump, warm air, electric","water source heat pump, warm air, electric")
+td_mainheat_description("boiler and underfloor, electric","boiler, underfloor heating, electric")
+td_mainheat_description("boiler, underfloor, lpg","boiler, underfloor heating, lpg")
+td_mainheat_description("boiler, coal","boiler, radiators, coal")
+td_mainheat_description("boiler, underfloor, dual fuel (mineral and wood)","boiler, underfloor heating, dual fuel (mineral and wood)")
+td_mainheat_description("warm air heat pump, electric","warm air, heat pump, electric")
+td_mainheat_description("ground source heat pump, , electric","ground source heat pump, electric")
+td_mainheat_description(c("portable electric heating assumed for most rooms, electric","portable electric heating assumed for most rooms"),"portable electric heaters assumed for most rooms")
+td_mainheat_description("electric storage, electric","electric storage heaters")
+td_mainheat_description("electric ceiling","electric ceiling heating")
+td_mainheat_description("air source heat pump fan coil units, electric","air source heat pump, fan coil units, electric")
+td_mainheat_description("boiler, smokeless fuel","boiler, radiators, smokeless fuel")
+td_mainheat_description("community scheme with chp, waste combustion and waste combustion","community scheme, waste combustion")
+td_mainheat_description("ground-to-water heat pump with auxiliary heater (electric) source heat pump, radiators, electric","ground source heat pump, radiators, electric")
+td_mainheat_description("air source heat pump, warm air, electric","air source heat pump, warm air, electric")
+td_mainheat_description("ground source heat pump, radiators, electricity","ground source heat pump, radiators, electric")
+td_mainheat_description("boiler, radiators, bulk wood pellets","boiler, radiators, wood pellets")
+td_mainheat_description("air source heat pump, radiators, electricity","air source heat pump, radiators, electric")
+td_mainheat_description("air source heat pump, systems with radiators, electric","air source heat pump, radiators, electric")
+td_mainheat_description("boiler, radiators, electricity","boiler, radiators, electric")
+td_mainheat_description("boiler, radiators, main wood pellets","boiler, radiators, wood pellets")
+td_mainheat_description("community scheme, wood pellets and mains gas","community scheme, mains gas and wood pellets")
+td_mainheat_description(c(", underfloor heating, electric",", electric underfloor heating"),"electric underfloor heating")
+
+td_mainheat_description(c("boiler, radiators, dual fuel appliance","boiler, radiators, dual fuel appliance (mineral and wood)"),"boiler, radiators, dual fuel (mineral and wood)")
+td_mainheat_description("electric boiler, electric","boiler, electric")
+td_mainheat_description(c("sap05:main-heating",""),NA)
+td_mainheat_description("boiler, radiators","boiler, radiators,")
+
+td_mainheat_description("boiler, radiators, heat from boilers mains gas","boiler, radiators, mains gas")
+td_mainheat_description("boiler, underfloor heating, dual fuel appliance","boiler, underfloor heating, dual fuel (mineral and wood)")
+td_mainheat_description("community heat pump","community heat pump,")
+td_mainheat_description("community scheme with chp, mains gas","community scheme with chp and mains gas")
+td_mainheat_description("oil boiler, oil","boiler, radiators, oil")
+
+td_mainheat_description(c("radiator heating, heat from boilers gas",
+                          "radiator heating, mains gas"),"boiler, radiators, mains gas")
+
+td_mainheat_description(c("community heap pump",
+                          "community heat pump, heat pump"),"community heap pump,")
+
+td_mainheat_description(c("community heap pump",
+                          "community heat pump, heat pump"),"community heap pump,")
+
+td_mainheat_description("community heat pump, underfloor heating, heat pump","community heat pump, underfloor heating")
+
+td_mainheat_description("community scheme, biomass and mains gas","community scheme, mains gas and biomass")
+
+td_mainheat_description("electric storage heaters, underfloor","electric storage heaters, underfloor heating")
+
+td_mainheat_description("room heaters","room heaters,")
+
+td_mainheat_description("room heaters, dual fuel appliance","room heaters, dual fuel")
+td_mainheat_description("room heaters, main wood pellets","room heaters, wood pellets")
+
+
 
 
 MAINHEAT_DESCRIPTION = c(", electric",
-                         ", gas",
-                         ", wood pellets",
-                         "Air source heat pump, electric",
-                         "Air source heat pump, radiators, electric",
-                         "Air source heat pump, radiators, mains gas",
-                         "Air source heat pump, Systems with radiators, electric",
-                         "Air source heat pump, Underfloor heating, pipes in screed above insulation, electric",
-                         "Air source heat pump, Underfloor heating, pipes in insulated timber floor, electric",
-                         "Air source heat pump, Underfloor heating, pipes in concrete slab, electric",
-                         "Air source heat pump, Underfloor heating and radiators, pipes in screed above insulation, electric",
-                         "Air source heat pump, Underfloor heating and radiators, pipes in insulated timber floor, electric",
-                         "Air source heat pump, underfloor, electric",
-                         "Air source heat pump, warm air, electric",
-                         
-                         "Air source heat pump, fan coil units, electric",
-                         
-                         "Boiler and radiators",
-                         "Boiler and radiators, glo",
-                         "Boiler and radiators, anthracite",
-                         "Boiler and radiators, B30K",
-                         "Boiler and radiators, biomass",
-                         "Boiler and radiators, liquid biofuel",
-                         "Boiler and radiators, coal",
-                         "Boiler and radiators, dual fuel (mineral and wood)",
-                         "Boiler and radiators, dual fuel appliance",
-                         "Boiler and radiators, electric",
-                         "Boiler and radiators, LPG",
-                         "Boiler and radiators, bottled LPG",
-                         "Boiler and radiators, mains gas",
-                         "Boiler and radiators, bottled gas",
-                         "Boiler and radiators, oil",
-                         "Boiler and radiators, wood chips",
-                         "Boiler and radiators, wood logs",
-                         "Boiler and radiators, wood pellets",
-                         "Boiler and radiators, smokeless fuel",
-                         "Boiler and underfloor heating, coal",
-                         "Boiler and underfloor heating, B30K",
-                         "Boiler and underfloor heating, anthracite",
-                         "Boiler and underfloor heating, electric",
-                         "Boiler and underfloor heating, LPG",
-                         "Boiler and underfloor heating, bottled LPG",
-                         "Boiler and underfloor heating, mains gas",
-                         "Boiler and underfloor heating, bottled gas",
-                         "Boiler and underfloor heating, oil",
-                         "Boiler and underfloor heating, wood pellets",
-                         "Boiler and underfloor heating, wood logs",
-                         "Boiler and underfloor heating, wood chips",
-                         "Boiler and underfloor heating, dual fuel (mineral and wood)",
-                         "Boiler and underfloor heating, smokeless fuel",
-                         "Community scheme",
-                         "Community scheme, biomass",
-                         "Community scheme with CHP",
-                         "Community scheme with CHP and waste combustion",
-                         "Community scheme, mains gas",
-                         "Community scheme, oil",
-                         "Community scheme, radiators, mains gas",
-                         "Community scheme with CHP and mains gas",
-                         "Community scheme, waste combustion",
-                         "Community heat pump, electric",
-                         "Community heat pump, electric and mains gas",
-                         "Community heat pump",
-                         "Electric storage heaters",
-                         "Electric storage heaters, radiators",
-                         "Electric underfloor heating",
-                         "Electric ceiling heating",
-                         "Electric ceiling heating, radiators, electric",
-                         "Electric ceiling heating, underfloor, electric",
-                         "Electric heat pumps, electric",
-                         "Exhaust air MEV source heat pump, Systems with radiators, electric",
-                         "Ground source heat pump, Underfloor heating, pipes in screed above insulation, electric",
-                         "Ground source heat pump, Underfloor heating, pipes in insulated timber floor, electric",
-                         "Ground source heat pump, Underfloor heating and radiators, pipes in concrete slab, electric",
-                         "Ground source heat pump, Underfloor heating and radiators, pipes in insulated timber floor, electric",
-                         "Ground source heat pump, Underfloor heating and radiators, pipes in screed above insulation, electric",
-                         "Ground source heat pump, underfloor, electric",
-                         "Ground source heat pump, underfloor, mains gas",
-                         "Ground source heat pump, underfloor, LPG",
-                         "Ground source heat pump, warm air, electric",
-                         "Ground source heat pump, radiators, electric",
-                         "Ground source heat pump, radiators, mains gas",
-                         "Ground source heat pump, fan coil units, electric",
-                         
-                         "Ground source heat pump, electric",
-                         "No system present: electric heaters assumed",
-                         "Portable electric heaters",
-                         
-                         "Portable electric heaters assumed for most rooms",
-                         "Room heaters,",
-                         "Room heaters, anthracite",
-                         "Room heaters, coal",
-                         "Room heaters, oil",
-                         "Room heaters, dual fuel",
-                         "Room heaters, dual fuel (mineral and wood)",
-                         "Room heaters, electric",
-                         "Room heaters, radiators, electric",
-                         "Room heaters, smokeless fuel",
-                         "Room heaters, wood logs",
-                         "Room heaters, wood chips",
-                         "Room heaters, wood pellets",
-                         "Room heaters, mains gas",
-                         "Room heaters, bottled gas",
-                         "Room heaters, bottled LPG",
-                         "Room heaters, LPG",
-                         "Room heaters, radiators, oil",
-                         "Solid-fuel boiler, solid fuel",
-                         "Warm air,",
-                         "Warm air, electric",
-                         "Warm air, mains gas",
-                         "Warm air, oil",
-                         "Warm air, heat pump, electric",
-                         "Warm air, LPG",
-                         "Water source heat pump, radiators, electric",
-                         "Water source heat pump, underfloor, electric",
-                         "Water source heat pump, warm air, electric",
-                         "Water source heat pump, radiators, mains gas",
-                         "Micro-cogeneration, mains gas",
-                         "SAP05:Main-Heating")
+                          ", gas",
+                          ", mains gas",
+                          ", oil",
+                          ", underfloor, electric",
+                          ", wood pellets",
+                          " warm air, electric",
+                          ", radiators, electric",
+                          ", underfloor",                                                                                
+                          ", warm air, electric" ,
+                          "underfloor heating, mains gas",
+                         "air source heat pump",
+                         "air source heat pump, mains gas",
+                         "air source heat pump, radiators, b30k",
+                         "air source heat pump, radiators, lpg",
+                         "air source heat pump, underfloor heating, b30k",
+                         "air source heat pump, underfloor heating, bioethanol",
+                         "air source heat pump, underfloor heating, bottled lpg",
+                          "air source heat pump, electric",
+                          "air source heat pump, radiators, oil" ,
+                          "air source heat pump, fan coil units, electric",
+                          "air source heat pump, fan coil units, mains gas",
+                          "air source heat pump, radiators,",
+                          "air source heat pump, radiators, electric",
+                          "air source heat pump, radiators, mains gas",
+                          "air source heat pump, underfloor heating, radiators, pipes in concrete slab, electric",
+                          "air source heat pump, underfloor heating, radiators, pipes in insulated timber floor, electric",
+                          "air source heat pump, underfloor heating, radiators, pipes in screed above insulation, electric",
+                          "air source heat pump, underfloor heating, dual fuel (mineral and wood)" ,
+                          "air source heat pump, underfloor heating, electric",
+                          "air source heat pump, underfloor heating, lpg",
+                          "air source heat pump, underfloor heating, mains gas",
+                          "air source heat pump, underfloor heating, oil",
+                          "air source heat pump, underfloor heating, pipes in concrete slab, electric",
+                          "air source heat pump, underfloor heating, pipes in insulated timber floor, electric",
+                          "air source heat pump, underfloor heating, pipes in screed above insulation, electric",
+                          "air source heat pump, underfloor heating, wood pellets",
+                          "air source heat pump, warm air, electric",
+                          "air source heat pump, warm air, mains gas",
+                          "back boiler to radiators source heat pump, radiators, electric",
+                          "boiler and, coal",
+                          "boiler and, dual fuel (mineral and wood)",
+                          "boiler and, mains gas",
+                          "boiler and, electric",
+                          "boiler and, mains gas",
+                          "boiler and, smokeless fuel",
+                          "boiler and fan coil units, mains gas",
+                          "boiler and fan coil units, wood logs",
+                          "boiler, wood chips",
+                          "boiler, wood pellets",
+                          "boiler, radiators,",
+                          "boiler, radiators, anthracite",
+                          "boiler, radiators, b30k",
+                          "boiler, radiators, bioethanol",
+                          "boiler, radiators, biomass",
+                          "boiler, radiators, appliances able to use mineral oil or liquid biofuel",                                    
+                          "boiler, radiators, biogas",
+                          "boiler, radiators, bottled gas",
+                          "boiler, radiators, bottled lpg",
+                          "boiler, radiators, coal",
+                          "boiler, radiators, dual fuel (mineral and wood)",
+                          "boiler, radiators, electric",
+                          "boiler, radiators, electric (24-hr heating tariff)",
+                          "boiler, radiators, liquid biofuel",
+                          "boiler, radiators, lpg",
+                          "boiler, radiators, lpg subject to special condition 18",
+                          "boiler, radiators, mains gas",
+                          "boiler, radiators, oil",
+                          "boiler, radiators, smokeless fuel",
+                          "boiler, radiators, wood chips",
+                          "boiler, radiators, wood logs",
+                          "boiler, radiators, wood pellets",
+                          "boiler, underfloor heating,",
+                          "boiler, underfloor heating, anthracite",
+                          "boiler, underfloor heating, b30k",
+                          "boiler, underfloor heating, bottled gas",
+                          "boiler, underfloor heating, bottled lpg",
+                          "boiler, underfloor heating, coal",
+                          "boiler, underfloor heating, dual fuel (mineral and wood)",
+                          "boiler, underfloor heating, electric",
+                          "boiler, underfloor heating, electric (24-hr heating tariff)",
+                          "boiler, underfloor heating, lpg",
+                          "boiler, underfloor heating, lpg subject to special condition 18",
+                          "boiler, underfloor heating, liquid biofuel",
+                          "boiler, underfloor heating, mains gas",
+                          "boiler, underfloor heating, oil",
+                          "boiler, underfloor heating, smokeless fuel",
+                          "boiler, underfloor heating, wood chips",
+                          "boiler, underfloor heating, wood logs",
+                          "boiler, underfloor heating, wood pellets",
+                          "boiler, anthracite",
+                          "boiler, electric",
+                          "boiler, mains gas",
+                          "boiler, wood logs",
+                          "community heat pump,",
+                          "community heat pump, electric",
+                          "community heat pump, electric and mains gas",
+                          "community heat pump, mains gas",
+                          "community scheme",
+                          "community scheme utilising geothermal heat and biomass",
+                          "community scheme with chp",
+                           
+                          "community scheme with chp and electric",
+                          "community scheme with chp and geothermal",
+                          "community scheme with chp and mains gas",
+                          "community scheme with chp and waste combustion",
+                          "community scheme with chp and wood logs",
+                          "community scheme, biomass",
+                          "community scheme, mains gas",
+                          "community scheme, mains gas and biomass",
+                          "community scheme, mains gas and mains gas",
+                          "community scheme, mains gas and wood pellets",
+                          "community scheme, oil",
+                          "community scheme, radiators, coal",
+                          "community scheme, radiators, mains gas",
+                          "community scheme, radiators, oil",
+                          "community scheme, radiators, waste combustion",
+                          "community scheme, biomass and oil",
+                          "community scheme, coal",
+                          "community scheme, lpg",
+                          "community scheme, radiators, lpg",
+                          "community scheme, smokeless fuel",
+                          "community scheme, underfloor heating, mains gas",
+                          "community scheme, waste combustion",
+                          "community scheme, wood chips",
+                          "community scheme, wood pellets",
+                          "electric ceiling heating",
+                          "electric ceiling, mains gas",
+                          "electric ceiling heating, radiators, electric",
+                          "electric ceiling heating, underfloor heating, electric",
+                          "electric heat pumps, electric",
+                          "electric storage heaters",
+                          "electric storage heaters, radiators",
+                          "electric underfloor heating",
+                          "electric underfloor heating (standard tariff), electric",
+                          "radiator heating, electric",
+                          "radiator heating, electric (24-hr heating tariff)",
+                          "exhaust air mev source heat pump, systems with radiators, electric",
+                          "exhaust air mev source heat pump, electric",
+                          "exhaust air mev source heat pump, underfloor heating, pipes in screed above insulation, electric",
+                          "exhaust air mev source heat pump, underfloor heating, radiators, pipes in screed above insulation, electric",
+                          "exhaust source heat pump, fan coil units, electric",
+                          "exhaust source heat pump, underfloor heating, pipes in screed above insulation, electric",
+                          "gas-fired heat pumps, electric",
+                          "gas/lpg boiler 1998 or later, gas",
+                          "gas/lpg boiler pre-1998 with balanced or open-flue, mains gas",
+                          "gas/lpg boiler pre-1998, with fan-assisted flue, gas",
+                          "ground source heat pump, electric",
+                          "ground source heat pump, fan coil units, electric",
+                          "ground source heat pump, radiators, electric",
+                          "ground source heat pump, radiators, mains gas",
+                          "ground source heat pump, underfloor heating, radiators, pipes in concrete slab, electric",
+                          "ground source heat pump, underfloor heating, radiators, pipes in insulated timber floor, electric" ,
+                          "ground source heat pump, underfloor heating, radiators, pipes in screed above insulation, electric",
+                          "ground source heat pump, underfloor heating, pipes in insulated timber floor, electric",
+                          "ground source heat pump, underfloor heating, pipes in screed above insulation, electric",
+                          "ground source heat pump, underfloor heating, electric",
+                          "ground source heat pump, underfloor heating, lpg",
+                          "ground source heat pump, underfloor heating, mains gas",
+                          "ground source heat pump, warm air, electric",
+                          "ground source heat pump, radiators, oil",
+                          "ground source heat pump, underfloor heating, pipes in concrete slab, electric",
+                          "ground source heat pump, warm air, mains gas",
+                          "heat pumpelectric",
+                          "hot-water-only systems, electric",
+                          "hot-water-only systems, gas",
+                          "micro-cogeneration, lpg",
+                          "micro-cogeneration, oil",
+                          "micro-cogeneration, mains gas",
+                          "no system present: electric heaters assumed",
+                          "portable electric heaters",
+                          "portable electric heaters assumed for most rooms",
+                          "room heaters,",
+                          "room heaters, anthracite",
+                          "room heaters, bottled gas",
+                          "room heaters, bottled lpg",
+                          "room heaters, coal",
+                          "room heaters, dual fuel",
+                          "room heaters, dual fuel (mineral and wood)",
+                          "room heaters, electric",
+                          "room heaters, lpg",
+                          "room heaters, mains gas",
+                          "room heaters, oil",
+                          "room heaters, radiators, electric",
+                          "room heaters, radiators, oil",
+                          "room heaters, smokeless fuel",
+                          "room heaters, wood chips",
+                          "room heaters, wood logs",
+                          "room heaters, wood pellets",
+                          "room heaters, b30k",
+                          "room heaters, biogas landfill",
+                          "room heaters, radiators, mains gas",
+                          "room heaters, radiators, wood logs",
+                          "room heaters, underfloor heating, dual fuel (mineral and wood)",
+                          "room heaters, underfloor heating, wood logs",
+                          "solid-fuel boiler, solid fuel",
+                          "solar assisted heat pump, underfloor heating, electric",
+                          "solar assisted heat pump, underfloor heating, pipes in insulated timber floor, electric",
+                          "solar assisted heat pump, underfloor heating, radiators, pipes in screed above insulation, electric",
+                          "warm air,",
+                          "warm air, electric",
+                          "warm air, heat pump, electric",
+                          "warm air, lpg",
+                          "warm air, mains gas",
+                          "warm air, oil",
+                          "warm air, b30k",
+                          "warm air, bottled gas",
+                          "warm air, bottled lpg",
+                          "warm air, dual fuel (mineral and wood)",
+                          "warm air, lpg (bottled)",
+                          "warm air, radiators, mains gas",
+                          "water source heat pump, electric",
+                          "water source heat pump, fan coil units, electric",
+                          "water source heat pump, radiators, electric",
+                          "water source heat pump, radiators, mains gas",
+                          "water source heat pump, radiators, oil",
+                          "water source heat pump, underfloor heating, electric",
+                          "water source heat pump, warm air, electric",
+                          "water source heat pump, underfloor heating, mains gas",
+                          "water source heat pump, warm air, mains gas",
+                          "water source heat pump, warm air, wood pellets",
+                          NA  )
 
 
 validate(MAINHEAT_DESCRIPTION, "MAINHEAT_DESCRIPTION")
 
 # WINDOWS_DESCRIPTION -----------------------------------------------------
 
-certs$WINDOWS_DESCRIPTION <- pbapply::pbsapply(certs$WINDOWS_DESCRIPTION, splitwelsh, cl = cl, USE.NAMES = FALSE)
-certs$WINDOWS_DESCRIPTION <- pbapply::pbsapply(certs$WINDOWS_DESCRIPTION, translatewelsh, cl = cl, USE.NAMES = FALSE)
-certs$WINDOWS_DESCRIPTION <- gsub("  "," ",certs$WINDOWS_DESCRIPTION)
-certs$WINDOWS_DESCRIPTION <- gsub("glazed","glazing",certs$WINDOWS_DESCRIPTION)
-certs$WINDOWS_DESCRIPTION <- gsub("Fully","Full",certs$WINDOWS_DESCRIPTION)
+sub_WINDOWS_DESCRIPTION("glazed","glazing")
+sub_WINDOWS_DESCRIPTION("fully","full")
 
-certs$WINDOWS_DESCRIPTION[certs$WINDOWS_DESCRIPTION == "Single glazingSingle glazing"] <- "Single glazing"
-certs$WINDOWS_DESCRIPTION[certs$WINDOWS_DESCRIPTION == "Solid, no insulation (assumed)"] <- NA
+td_WINDOWS_DESCRIPTION("single glazingsingle glazing", "single glazing")
+td_WINDOWS_DESCRIPTION(c("full double glazingdouble glazing",
+                         "multiple glazing throught",
+                         "multiple glazing throughout",
+                         "multiple glazing throughout double glazing"
+                         ), "full double glazing")
+td_WINDOWS_DESCRIPTION("partial double glazingdouble glazing", "partial double glazing")
+td_WINDOWS_DESCRIPTION(c("sap05:windows",
+                         "solid, no insulation (assumed)",
+                         "suspended, no insulation (assumed)",
+                         "(other premises below)",
+                         "full",
+                         "mostly",
+                         "some"
+                         ),NA)
 
-WINDOWS_DESCRIPTION = c("High performance glazing",
+
+td_WINDOWS_DESCRIPTION("multiple glazing throughout triple glazing", "full triple glazing")
+
+
+td_WINDOWS_DESCRIPTION("partial multiple glazing", "partial double glazing")
+td_WINDOWS_DESCRIPTION("some multiple glazing", "some double glazing")
+td_WINDOWS_DESCRIPTION("mostly multiple glazing", "mostly double glazing")
+
+td_WINDOWS_DESCRIPTION("some multiple glazingsecondary glazing", "some double glazing")
+
+td_WINDOWS_DESCRIPTION("single glazingdouble glazing","single glazing")
+td_WINDOWS_DESCRIPTION("single glazingsecondary glazing","single glazing")
+td_WINDOWS_DESCRIPTION("single glazingtriple glazing","single glazing")
+td_WINDOWS_DESCRIPTION("partial multiple glazingdouble glazing","partial double glazing")
+td_WINDOWS_DESCRIPTION("some multiple glazingdouble glazing","some double glazing")
+
+
+WINDOWS_DESCRIPTION = c("high performance glazing",
                         
-                        "Full double glazing",
-                        "Mostly double glazing",
-                        "Partial double glazing",
-                        "Some double glazing",
+                        "full double glazing",
+                        "mostly double glazing",
+                        "partial double glazing",
+                        "some double glazing",
                         "double glazing",
                         
-                        "Single glazing",
-                        "Some Single glazing",
-                        "Single and multiple glazing",
+                        "single glazing",
+                        "some single glazing",
+                        "partial single glazing",
+                        "single and multiple glazing",
+
+                        "full triple glazing",
+                        "partial triple glazing",
+                        "mostly triple glazing",
+                        "some triple glazing",
                         
-                        "Multiple glazing throughout double glazing", 
+                        "some secondary glazing",
+                        "partial secondary glazing",
+                        "secondary glazing",
+                        "full secondary glazing",
+                        "mostly secondary glazing",
                         
-                        "Multiple glazing throughout",
-                        "Partial multiple glazing",
-                        "Some multiple glazing",
-                        "Mostly multiple glazing",
-                        
-                        "Full triple glazing",
-                        "Partial triple glazing",
-                        "Mostly triple glazing",
-                        "Some triple glazing",
-                        
-                        "Some secondary glazing",
-                        "Partial secondary glazing",
-                        "Secondary glazing",
-                        "Full secondary glazing",
-                        "Mostly secondary glazing",
-                        
-                        "SAP05:Windows",
-                        "Single glazeddouble glazing",
-                        "Single glazedsecondary glazing",
-                        "Single glazingdouble glazing",
-                        "Single glazingsecondary glazing",
-                        "Single glazingtriple glazing",
-                        "Partial multiple glazingdouble glazing",
-                        
+                        "unknown complex glazing regime",
                         NA
 )
 
@@ -811,121 +924,148 @@ validate(WINDOWS_DESCRIPTION, "WINDOWS_DESCRIPTION")
 
 # HOTWATER_DESCRIPTION ----------------------------------------------------
 
-certs$HOTWATER_DESCRIPTION <- pbapply::pbsapply(certs$HOTWATER_DESCRIPTION, splitwelsh, cl = cl, USE.NAMES = FALSE)
-certs$HOTWATER_DESCRIPTION <- pbapply::pbsapply(certs$HOTWATER_DESCRIPTION, translatewelsh, cl = cl, USE.NAMES = FALSE)
+sub_HOTWATER_DESCRIPTION("cylinderstat","cylinder thermostat")
+sub_HOTWATER_DESCRIPTION("no cylinder thermostat, no cylinder thermostat","no cylinder thermostat")
+sub_HOTWATER_DESCRIPTION("from secondary heater","from secondary system")
+sub_HOTWATER_DESCRIPTION("from community","community")
+sub_HOTWATER_DESCRIPTION("from main heating system","from main system")
 
-certs$HOTWATER_DESCRIPTION <- gsub("cylinderstat","cylinder thermostat",certs$HOTWATER_DESCRIPTION, fixed = TRUE)
-certs$HOTWATER_DESCRIPTION <- gsub("no cylinder thermostat, no cylinder thermostat","no cylinder thermostat",certs$HOTWATER_DESCRIPTION, fixed = TRUE)
-
-td_HOTWATER_DESCRIPTION("community scheme",
-                        "Community scheme")
-td_HOTWATER_DESCRIPTION( "From community scheme","Community scheme")
-td_HOTWATER_DESCRIPTION( "community scheme, no cylinder thermostat",
-                         "Community scheme, no cylinder thermostat")
-td_HOTWATER_DESCRIPTION( c("No system present?electric immersion assumed",
-                           "No hot water system present - electric immersion assumed",
-                           "No system present : electric immersion assumed"),
-                         "No system present: electric immersion assumed")
-td_HOTWATER_DESCRIPTION( "From main system ",
-                         "From main system")
-td_HOTWATER_DESCRIPTION("Electric immersion, standard tariff ","Electric immersion, standard tariff")
-td_HOTWATER_DESCRIPTION("From main system , no cylinder thermostat","From main system, no cylinder thermostat")
-td_HOTWATER_DESCRIPTION("From main system, flue gas heat recovery, plus solar","From main system, plus solar, flue gas heat recovery")
-td_HOTWATER_DESCRIPTION("From secondary heater, no cylinder thermostat","From secondary system, no cylinder thermostat")
-td_HOTWATER_DESCRIPTION("SAP:Hot-Water","SAP05:Hot-Water")
+td_HOTWATER_DESCRIPTION( c("no system present?electric immersion assumed",
+                           "no hot water system present - electric immersion assumed",
+                           "no system present : electric immersion assumed"),
+                         "no system present: electric immersion assumed")
+td_HOTWATER_DESCRIPTION("electric immersion, standard tariff ","electric immersion, standard tariff")
+td_HOTWATER_DESCRIPTION("from main system , no cylinder thermostat","from main system, no cylinder thermostat")
+td_HOTWATER_DESCRIPTION(c("from main system ","from main system"),"from main system,")
+td_HOTWATER_DESCRIPTION("from main system, flue gas heat recovery, plus solar","from main system, plus solar, flue gas heat recovery")
+td_HOTWATER_DESCRIPTION(c("sap:hot-water","sap05:hot-water","***sample***"),NA)
 
 
-HOTWATER_DESCRIPTION = c("Back boiler (hot water only), gas",
-                         "Community scheme",
-                         "Community scheme with CHP",
-                         "Community scheme, no cylinder thermostat",
-                         "Community scheme, no cylinder thermostat, plus solar",
-                         "Community scheme, plus solar",
-                         "Community scheme, waste water heat recovery",
-                         "Community heat pump",
-                         "Electric immersion, off-peak",
-                         "Electric immersion, off-peak, plus solar",
-                         "Electric immersion, off-peak, no cylinder thermostat",
-                         "Electric immersion, off-peak, flue gas heat recovery, waste water heat recovery",
-                         "Electric immersion, dual tariff",
-                         "Electric immersion, standard tariff",
-                         "Electric immersion, standard tariff, no cylinder thermostat",
-                         "Electric immersion, standard tariff, plus solar",
-                         "Electric immersion, standard tariff, flue gas heat recovery, waste water heat recovery",
-                         "Electric instantaneous at point of use",
-                         "Electric instantaneous at point of use, no cylinder thermostat",
-                         "Electric instantaneous at point of use, plus solar",
-                         "Electric heat pump",
-                         "Electric heat pump, plus solar, no cylinder thermostat",
-                         "Electric heat pump for water heating only",
-                         "Electric heat pump for water heating only, no cylinder thermostat",
-                         "Electric heat pump for water heating only, plus solar",
+HOTWATER_DESCRIPTION = c(", plus solar, no cylinder thermostat",
+                         "back boiler (hot water only), gas",
+                         "community scheme",
+                         "community scheme with chp",
+                         "community scheme, no cylinder thermostat",
+                         "community scheme, no cylinder thermostat, plus solar",
+                         "community scheme, plus solar",
+                         "community scheme, waste water heat recovery",
+                         "community heat pump",
+                         "electric immersion, off-peak",
+                         "electric immersion, off-peak, plus solar",
+                         "electric immersion, off-peak, no cylinder thermostat",
+                         "electric immersion, off-peak, flue gas heat recovery, waste water heat recovery",
+                         "electric immersion, dual tariff",
+                         "electric immersion (on-peak or off-peak)",
+                         "electric immersion, standard tariff",
+                         "electric immersion, standard tariff, no cylinder thermostat",
+                         "electric immersion, standard tariff, plus solar",
+                         "electric immersion, standard tariff, flue gas heat recovery, waste water heat recovery",
+                         "electric immersion, standard tariff, waste water heat recovery",
+                         "electric immersion, off-peak, no cylinder thermostat, plus solar",
+                         "electric immersion, off-peak, plus solar, waste water heat recovery",
+                         "electric immersion, off-peak, waste water heat recovery",
+                         "electric immersion, standard tariff, flue gas heat recovery",
+                         "electric immersion, standard tariff, plus solar, flue gas heat recovery",
+                         "electric immersion, standard tariff, plus solar, no cylinder thermostat",
+                         "electric immersion, standard tariff, waste water heat recovery, no cylinder thermostat",
+                         "electric instantaneous at point of use ",
+                         "electric instantaneous at point of use, 7-hour tariff (on-peak)",
+                         "electric instantaneous at point of use, 7-hour tariff (on-peak), 7-hour tariff (on-peak)",
+                         "electric instantaneous at point of use, flue gas heat recovery",
+                         "electric instantaneous at point of use, standard tariff",
+                         "electric instantaneous at point of use, waste water heat recovery",
+                         "electric instantaneous at point of use",
+                         "electric instantaneous at point of use, no cylinder thermostat",
+                         "electric instantaneous at point of use, plus solar",
+                         "electric heat pump",
+                         "electric heat pump, plus solar, no cylinder thermostat",
+                         "electric heat pump, plus solar",
+                         "electric heat pump for water heating only",
+                         "electric heat pump for water heating only, no cylinder thermostat",
+                         "electric heat pump for water heating only, plus solar",
+                         "electric heat pump for water heating only, plus solar, no cylinder thermostat",
                          
-                         "Electric multipoint",
-                         "From main system",
-                         "From main system, standard tariff",
-                         "From main system, flue gas heat recovery",
-                         "From main system, flue gas heat recovery, waste water heat recovery",
+                         "electric multipoint",
+                         "from main system,",
+                         "from main system, standard tariff",
+                         "from main system, flue gas heat recovery",
+                         "from main system, flue gas heat recovery, waste water heat recovery",
                          
-                         "From main system, no cylinder thermostat",
-                         "From main system, no cylinder thermostat, plus solar",
-                         "From main system, plus solar",
-                         "From main system, plus solar, flue gas heat recovery",
-                         "From main system, plus solar, no cylinder thermostat",
-                         "From main system, plus solar, waste water heat recovery",
-                         "From main system, waste water heat recovery",
-                         "From second main heating system",
-                         "From secondary system",
-                         "From secondary system, no cylinder thermostat",
-                         "From secondary system, plus solar, no cylinder thermostat",
-                         "From secondary system, plus solar",
-                         "Heat pump",
-                         "Single-point gas water heater, standard tariff",
-                         "Single-point gas water heater",
-                         "Single-point gas water heater, off-peak",
-                         "Point gas water heater, no cylinder thermostat",
+                                                                
+                         "from main system, 7-hour tariff (on-peak)",
+                         "from main system, flue gas heat recovery, no cylinder thermostat",
+                         "from main system, no cylinder thermostat, flue gas heat recovery",
+                         "from main system, no cylinder thermostat, waste water heat recovery",
+                         "from main system, plus solar, no cylinder thermostat, flue gas heat recovery",
+                         "from main system, waste water heat recovery, flue gas heat recovery",
+                         "from main system, waste water heat recovery, no cylinder thermostat",
                          
-                         "Gas boiler/circulator",
-                         "Gas boiler/circulator, no cylinder thermostat",
-                         "Gas boiler/circulator, no cylinder thermostat, plus solar",
-                         "Gas boiler/circulator, plus solar",
-                         "Gas multipoint",
-                         "Gas multipoint, plus solar",
-                         "Gas multipoint, no cylinder thermostat",
-                         "Gas range cooker, no cylinder thermostat",  
-                         "Gas range cooker",
-                         "Gas range cooker, plus solar",
-                         "Gas instantaneous at point of use",
-                         "Gas instantaneous at point of use, plus solar",
-                         "No system present: electric immersion assumed",
-                         "No system present: electric immersion assumed, plus solar",
-                         "No system present: electric immersion assumed, no cylinder thermostat",
+                         "from main system, no cylinder thermostat",
+                         "from main system, no cylinder thermostat, plus solar",
+                         "from main system, plus solar",
+                         "from main system, plus solar, flue gas heat recovery",
+                         "from main system, plus solar, no cylinder thermostat",
+                         "from main system, plus solar, waste water heat recovery",
+                         "from main system, waste water heat recovery",
+                         "from second main heating system",
+                         "from secondary system",
+                         "from secondary system, no cylinder thermostat",
+                         "from secondary system, plus solar, no cylinder thermostat",
+                         "from secondary system, plus solar",
+                         "heat pump",
+                         "single-point gas water heater, standard tariff",
+                         "single-point gas water heater",
+                         "single-point gas water heater, off-peak",
+                         "point gas water heater, no cylinder thermostat",
+                         
+                         "gas boiler/circulator",
+                         "gas boiler/circulator for water heating only",
+                         "gas boiler/circulator for water heating only, plus solar",
+                         "gas boiler/circulator, flue gas heat recovery",
+                         "gas boiler/circulator, no cylinder thermostat, flue gas heat recovery",
+                         "gas boiler/circulator, plus solar, no cylinder thermostat",
+                         "gas boiler/circulator, no cylinder thermostat",
+                         "gas boiler/circulator, no cylinder thermostat, plus solar",
+                         "gas boiler/circulator, plus solar",
+                         "gas multipoint",
+                         "gas multipoint, plus solar",
+                         "gas multipoint, no cylinder thermostat",
+                         "gas range cooker, no cylinder thermostat",  
+                         "gas range cooker",
+                         "gas range cooker, plus solar",
+                         "gas instantaneous at point of use",
+                         "gas instantaneous at point of use, plus solar",
+                         "gas instantaneous at point of use, flue gas heat recovery",
+                         "gas instantaneous at point of use, no cylinder thermostat",
+                         "no system present: electric immersion assumed",
+                         "no system present: electric immersion assumed, plus solar",
+                         "no system present: electric immersion assumed, no cylinder thermostat",
                          ", no cylinder thermostat",
-                         "Oil boiler/circulator",
-                         "Oil boiler/circulator, no cylinder thermostat",
-                         "Oil boiler/circulator, plus solar",
-                         "Oil range cooker",
-                         "Oil range cooker, no cylinder thermostat",
-                         "Oil range cooker, plus solar, no cylinder thermostat",
-                         "Oil range cooker, plus solar",
-                         "Solid fuel range cooker",
-                         "Solid fuel range cooker, plus solar",
-                         "Solid fuel range cooker, no cylinder thermostat",
-                         "Solid fuel range cooker, no cylinder thermostat, plus solar",
-                         "Solid fuel boiler/circulator",
-                         "Solid fuel boiler/circulator, no cylinder thermostat",
-                         "Solid fuel boiler/circulator, plus solar",
-                         "Solid fuel boiler/circulator, plus solar, no cylinder thermostat",
-                         "SAP05:Hot-Water")
+                         "oil boiler/circulator",
+                         "oil boiler/circulator, no cylinder thermostat",
+                         "oil boiler/circulator, plus solar",
+                         "oil range cooker",
+                         "oil range cooker, no cylinder thermostat",
+                         "oil range cooker, plus solar, no cylinder thermostat",
+                         "oil range cooker, plus solar",
+                         "solid fuel range cooker",
+                         "solid fuel range cooker, plus solar",
+                         "solid fuel range cooker, no cylinder thermostat",
+                         "solid fuel range cooker, no cylinder thermostat, plus solar",
+                         "solid fuel boiler/circulator",
+                         "solid fuel boiler/circulator, no cylinder thermostat",
+                         "solid fuel boiler/circulator, plus solar",
+                         "solid fuel boiler/circulator, plus solar, no cylinder thermostat",
+                         NA)
 
 validate(HOTWATER_DESCRIPTION, "HOTWATER_DESCRIPTION")
 
 
 # FLOOR_LEVEL -------------------------------------------------------------
 
-certs$FLOOR_LEVEL[certs$FLOOR_LEVEL == "ground floor"] <- "Ground"
+certs$FLOOR_LEVEL[certs$FLOOR_LEVEL == "ground floor"] <- "ground"
 
-FLOOR_LEVEL = c("Basement","Ground","1st","mid floor",
+FLOOR_LEVEL = c("basement","ground","1st","mid floor",
                 "2nd","3rd",
                 paste0(c(4:20,24:30),"th"),
                 "21st","22nd","23rd",
@@ -936,91 +1076,111 @@ validate(FLOOR_LEVEL, "FLOOR_LEVEL")
 
 # SECONDHEAT_DESCRIPTION --------------------------------------------------
 
-certs$SECONDHEAT_DESCRIPTION <- pbapply::pbsapply(certs$SECONDHEAT_DESCRIPTION, splitwelsh, cl = cl, USE.NAMES = FALSE)
-certs$SECONDHEAT_DESCRIPTION <- pbapply::pbsapply(certs$SECONDHEAT_DESCRIPTION, translatewelsh, cl = cl, USE.NAMES = FALSE)
+td_SECONDHEAT_DESCRIPTION("room heaters, lpg","room heaters, lpg")
+td_SECONDHEAT_DESCRIPTION("dim","none")
+td_SECONDHEAT_DESCRIPTION("portable electric heaters(assumed)","portable electric heaters (assumed)")
 
-td_SECONDHEAT_DESCRIPTION("Room heaters, lpg","Room heaters, LPG")
-td_SECONDHEAT_DESCRIPTION("Dim","None")
-td_SECONDHEAT_DESCRIPTION("Portable electric heaters(assumed)","Portable electric heaters (assumed)")
+td_SECONDHEAT_DESCRIPTION("room heaters, (null)","room heaters,")
+td_SECONDHEAT_DESCRIPTION("room heaters, bulk lpg","room heaters, lpg")
+td_SECONDHEAT_DESCRIPTION("room heaters, bulk wood pellets","room heaters, wood pellets")
+td_SECONDHEAT_DESCRIPTION(c(",","sap05:secondary-heating"),NA)
+td_SECONDHEAT_DESCRIPTION("room heaters, heating oil","room heaters, oil")
+td_SECONDHEAT_DESCRIPTION(c("room heaters, main wood pellets", "room heaters, secondary wood pellets", "room heaters, wood pellets (bags)"),"room heaters, wood pellets")
+td_SECONDHEAT_DESCRIPTION("room heaters","room heaters,")
+td_SECONDHEAT_DESCRIPTION("community, community","community scheme")
+td_SECONDHEAT_DESCRIPTION(c("gas (including lpg) room heaters, gas","mains gas room heaters, gas"),"room heaters, mains gas")
+td_SECONDHEAT_DESCRIPTION("room heaters","room heaters,")
+td_SECONDHEAT_DESCRIPTION("lpg room heaters, gas","room heaters, lpg")
 
-td_SECONDHEAT_DESCRIPTION("Room heaters, (null)","Room heaters,")
-td_SECONDHEAT_DESCRIPTION("Room heaters, bulk LPG","Room heaters, LPG")
-td_SECONDHEAT_DESCRIPTION("Room heaters, bulk wood pellets","Room heaters, wood pellets")
-td_SECONDHEAT_DESCRIPTION(",",NA)
-td_SECONDHEAT_DESCRIPTION("Room heaters, heating oil","Room heaters, oil")
 
-SECONDHEAT_DESCRIPTION = c("None",
-                           "Portable electric heaters",
-                           "Portable electric heaters (assumed)",
-                           "Gas/LPG boiler pre-1998, with fan-assisted flue, gas",
-                           "Gas/LPG boiler pre-1998 with balanced or open-flue, gas",
-                           "Gas/LPG boiler 1998 or later, gas",
-                           "Gas/LPG CPSU, gas",
-                           "Electric Underfloor Heating (Standard tariff), electric",
-                           "Room heaters,",
-                           "Room heaters, B30K",
-                           "Room heaters, bioethanol",
-                           "Room heaters, oil",
-                           "Room heaters, electric",
-                           "Room heaters, coal",
-                           "Room heaters, dual fuel (mineral and wood)",
-                           "Room heaters, dual fuel",
-                           "Room heaters, wood pellets",
-                           "Room heaters, wood logs",
-                           "Room heaters, wood chips",
-                           "Room heaters, smokeless fuel",
-                           "Room heaters, LPG",
-                           "Room heaters, LNG",
-                           "Room heaters, bottled LPG",
-                           "Room heaters, mains gas",
-                           "Room heaters, bottled gas",
-                           "Room heaters, anthracite",
-                           "Room heaters, smokeless Fuel",
-                           "SAP05:Secondary-Heating",
+
+
+SECONDHEAT_DESCRIPTION = c("none",
+                           "community scheme",
+                           "community scheme, heat from boilers mains gas",
+                           ", gas",
+                           "portable electric heaters",
+                           "portable electric heaters (assumed)",
+                           "gas/lpg boiler pre-1998, with fan-assisted flue, gas",
+                           "gas/lpg boiler pre-1998 with balanced or open-flue, gas",
+                           "gas/lpg boiler 1998 or later, gas",
+                           "gas/lpg cpsu, gas",
+                           "electric underfloor heating (standard tariff), electric",
+                           "electric underfloor heating",
+                           "electric ceiling heating",
+                           "hot-water-only systems, electric",
+                           "hot-water-only systems, gas",
+                           "other space heating systems, electric",
+                           "room heaters,",
+                           "room heaters, b30k",
+                           "room heaters, bioethanol",
+                           "room heaters, oil",
+                           "room heaters, electric",
+                           "room heaters, coal",
+                           "room heaters, dual fuel (mineral and wood)",
+                           "room heaters, dual fuel",
+                           "room heaters, wood pellets",
+                           "room heaters, wood logs",
+                           "room heaters, wood chips",
+                           "room heaters, smokeless fuel",
+                           "room heaters, lpg",
+                           "room heaters, lng",
+                           "room heaters, bottled lpg",
+                           "room heaters, mains gas",
+                           "room heaters, bottled gas",
+                           "room heaters, anthracite",
+                           "room heaters, appliances able to use mineral oil or liquid biofuel",
+                           "room heaters, biodiesel from any biomass source",
+                           "room heaters, biomass",
+                           "room heaters, heat from eletric heat pump",
+                           "room heaters, liquid biofuel",
+                           "room heaters, rapeseed oil",
+                           "room heaters, waste combustion",
                            NA)
 
 validate(SECONDHEAT_DESCRIPTION, "SECONDHEAT_DESCRIPTION")
 
 # TRANSACTION_TYPE --------------------------------------------------------
 
-certs$TRANSACTION_TYPE[certs$TRANSACTION_TYPE == "not recorded"] <- "unknown"
-certs$TRANSACTION_TYPE[certs$TRANSACTION_TYPE == "none of the above"] <- "unknown"
-certs$TRANSACTION_TYPE <- gsub(" - this is for backwards compatibility only and should not be used","",certs$TRANSACTION_TYPE, fixed = TRUE)
+certs$TRANSACTION_TYPE[certs$TRANSACTION_TYPE == "not recorded"] <- NA
+certs$TRANSACTION_TYPE[certs$TRANSACTION_TYPE == "none of the above"] <- NA
+certs$TRANSACTION_TYPE[certs$TRANSACTION_TYPE == "no data!"] <- NA
+certs$TRANSACTION_TYPE[certs$TRANSACTION_TYPE == "unknown"] <- NA
+certs$TRANSACTION_TYPE <- gsub(" this is for backwards compatibility only and should not be used","",certs$TRANSACTION_TYPE, fixed = TRUE)
 
 TRANSACTION_TYPE = c("new dwelling",
                      "rental (social)",
                      "rental (private)",
-                     "ECO assessment",
+                     "eco assessment",
                      "marketed sale",
                      "non marketed sale",
                      "assessment for green deal",
-                     "RHI application",
+                     "rhi application",
                      "rental",
-                     "FiT application",
+                     "fit application",
                      "following green deal",
-                     "Stock Condition Survey",
-                     "unknown")
+                     "stock condition survey",
+                     NA)
 
 validate(TRANSACTION_TYPE, "TRANSACTION_TYPE")
 
 # LIGHTING_DESCRIPTION ---------------------------------------------------------------
 
-
-certs$LIGHTING_DESCRIPTION <- pbapply::pbsapply(certs$LIGHTING_DESCRIPTION,splitwelsh, cl = cl, USE.NAMES = FALSE)
-certs$LIGHTING_DESCRIPTION <- gsub("Low energy lighting in ","",certs$LIGHTING_DESCRIPTION, fixed = TRUE)
+certs$LIGHTING_DESCRIPTION <- gsub("low energy lighting in ","",certs$LIGHTING_DESCRIPTION, fixed = TRUE)
 certs$LIGHTING_DESCRIPTION <- gsub("% fixed outlets","",certs$LIGHTING_DESCRIPTION, fixed = TRUE)
 certs$LIGHTING_DESCRIPTION <- gsub("% of fixed outlets","",certs$LIGHTING_DESCRIPTION, fixed = TRUE)
 certs$LIGHTING_DESCRIPTION <- gsub("all fixed outlets","100",certs$LIGHTING_DESCRIPTION, fixed = TRUE)
-certs$LIGHTING_DESCRIPTION <- gsub("No low energy lighting","0",certs$LIGHTING_DESCRIPTION, fixed = TRUE)
-certs$LIGHTING_DESCRIPTION <- gsub("No Low energy lighting","0",certs$LIGHTING_DESCRIPTION, fixed = TRUE)
-certs$LIGHTING_DESCRIPTION <- gsub("SAP05:Lighting","",certs$LIGHTING_DESCRIPTION, fixed = TRUE)
-certs$LIGHTING_DESCRIPTION <- gsub("Goleuadau ynni-isel mewn ","",certs$LIGHTING_DESCRIPTION, fixed = TRUE)
+certs$LIGHTING_DESCRIPTION <- gsub("no low energy lighting","0",certs$LIGHTING_DESCRIPTION, fixed = TRUE)
+certs$LIGHTING_DESCRIPTION <- gsub("sap05:lighting","",certs$LIGHTING_DESCRIPTION, fixed = TRUE)
+certs$LIGHTING_DESCRIPTION <- gsub("goleuadau ynni-isel mewn ","",certs$LIGHTING_DESCRIPTION, fixed = TRUE)
 certs$LIGHTING_DESCRIPTION <- gsub("% o'r mannau gosod","",certs$LIGHTING_DESCRIPTION, fixed = TRUE)
 certs$LIGHTING_DESCRIPTION <- gsub("% o?r mannau gosod","",certs$LIGHTING_DESCRIPTION, fixed = TRUE)
+certs$LIGHTING_DESCRIPTION <- gsub("% o???r mannau gosod","",certs$LIGHTING_DESCRIPTION, fixed = TRUE)
+certs$LIGHTING_DESCRIPTION <- gsub("goleuadau ynni-isel ym mhob un o?r mannau gosod","100",certs$LIGHTING_DESCRIPTION, fixed = TRUE)
 
-certs$LIGHTING_DESCRIPTION[certs$LIGHTING_DESCRIPTION == "Dim goleuadau ynni-isel"] <- "0"
-certs$LIGHTING_DESCRIPTION[certs$LIGHTING_DESCRIPTION == "Low energy lighting 100% 100"] <- "100"
-certs$LIGHTING_DESCRIPTION[certs$LIGHTING_DESCRIPTION == "Goleuadau ynni-isel ym mhob un o'r mannau gosod"] <- "100"
+certs$LIGHTING_DESCRIPTION[certs$LIGHTING_DESCRIPTION == "dim goleuadau ynni-isel"] <- "0"
+certs$LIGHTING_DESCRIPTION[certs$LIGHTING_DESCRIPTION == "low energy lighting 100% 100"] <- "100"
+certs$LIGHTING_DESCRIPTION[certs$LIGHTING_DESCRIPTION == "goleuadau ynni-isel ym mhob un o'r mannau gosod"] <- "100"
 
 LIGHTING_DESCRIPTION <- as.integer(as.numeric(certs$LIGHTING_DESCRIPTION))
 
@@ -1038,5 +1198,5 @@ certs$LIGHTING_DESCRIPTION <- LIGHTING_DESCRIPTION
 # Finish Up ---------------------------------------------------------------
 
 
-parallel::stopCluster(cl)
+
 
