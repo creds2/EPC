@@ -1,4 +1,4 @@
-ncores = 18
+ncores = 30
 certs <- readRDS("epc_all_raw.Rds")
 
 library(future)
