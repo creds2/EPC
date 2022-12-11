@@ -1,5 +1,5 @@
 ncores = 30
-certs <- readRDS("epc_all_raw.Rds")
+certs <- readRDS("data/epc_all_raw.Rds")
 
 library(future)
 library(future.apply)
@@ -1100,7 +1100,7 @@ certs$LIGHTING_DESCRIPTION <- LIGHTING_DESCRIPTION
 
 # Finish Up ---------------------------------------------------------------
 
-saveRDS(certs,"epc_all_clean.Rds")
+saveRDS(certs,"data/epc_all_clean.Rds")
 
 
 

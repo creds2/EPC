@@ -41,3 +41,7 @@ vignettes/*.pdf
 # tmp folder
 /tmp
 /tmp2
+epc_all_clean.Rds
+epc_all_raw.Rds
+epc_lsoa_summary.Rds
+epc_sample.csv

@@ -1,4 +1,4 @@
-fix_wm2k <- function(x){
+fix_wm2k <- function(x, check = FALSE){
   
   if(grepl("w",x)){
     x <- gsub("²","2", x)
@@ -12,12 +12,20 @@ fix_wm2k <- function(x){
     if(grepl("w/m2k", x)){
       y <- strsplit(x," ")[[1]]
       if(length(y) != 2){
-        stop(paste0("Don't know how to process ",x))
+        if(check){
+          stop(paste0("Don't know how to process ",x))
+        } else {
+          return(x)
+        }
       }
       if(nchar(y[1]) != 4){
         yn <- as.numeric(y[1])
         if(is.nan(yn)){
-          stop(paste0("Don't know how to process ",y[1]))
+          if(check){
+            stop(paste0("Don't know how to process ",y[1]))
+          } else {
+            return(x)
+          }
         }
         y[1] <- format(as.numeric(y[1]), digits = 2, nsmall = 2)
       }
